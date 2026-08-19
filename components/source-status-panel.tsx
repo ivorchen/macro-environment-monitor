@@ -45,7 +45,10 @@ export function SourceStatusPanel() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   async function requestPayload(signal?: AbortSignal) {
-    const response = await fetch("/api/indicators", { signal });
+    const response = await fetch("/api/indicators", {
+      cache: "no-store",
+      signal,
+    });
     if (!response.ok) throw new Error(`Indicator API returned ${response.status}`);
     return (await response.json()) as IndicatorApiResponse;
   }
@@ -145,6 +148,9 @@ export function SourceStatusPanel() {
               <CardContent>
                 <p className={cn("font-display text-3xl tracking-[-0.04em]", reading.freshness === "unavailable" && "text-lg text-[#8a5a51]")}>
                   {reading.displayValue}
+                </p>
+                <p className="mt-1 min-h-8 text-[9px] leading-4 text-[#74817b]">
+                  {reading.errorMessage ?? reading.transformation}
                 </p>
                 <div className="mt-4 flex items-center justify-between gap-2 border-t border-[#e1e3df] pt-3 text-[9px] text-[#74817b]">
                   <span className="flex items-center gap-1.5">

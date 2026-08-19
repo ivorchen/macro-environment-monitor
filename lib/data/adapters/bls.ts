@@ -24,6 +24,34 @@ function observationDate(datum: BlsDatum) {
   return periodEnd.toISOString().slice(0, 10);
 }
 
+function numericMonthlyData(data: BlsDatum[] | undefined) {
+  return (data ?? [])
+    .filter((datum) => /^M\d{2}$/.test(datum.period) && Number.isFinite(Number(datum.value)))
+    .sort((a, b) => observationDate(b).localeCompare(observationDate(a)));
+}
+
+function transformedValue(source: IndicatorSourceDefinition, data: BlsDatum[]) {
+  const latest = data[0];
+  if (!latest) return null;
+
+  if (source.calculation === "period-change") {
+    const previous = data[1];
+    return previous ? Number(latest.value) - Number(previous.value) : null;
+  }
+
+  if (source.calculation === "year-over-year-percent") {
+    const previousYear = data.find(
+      (datum) =>
+        Number(datum.year) === Number(latest.year) - 1 &&
+        datum.period === latest.period,
+    );
+    if (!previousYear || Number(previousYear.value) === 0) return null;
+    return (Number(latest.value) / Number(previousYear.value) - 1) * 100;
+  }
+
+  return Number(latest.value);
+}
+
 export async function fetchBlsReadings(
   sources: readonly IndicatorSourceDefinition[],
   options: AdapterOptions = {},
@@ -54,15 +82,15 @@ export async function fetchBlsReadings(
 
     return sources.map((source) => {
       const series = payload.Results?.series?.find((item) => item.seriesID === source.seriesId);
-      const latest = series?.data
-        .filter((datum) => /^M\d{2}$/.test(datum.period) && Number.isFinite(Number(datum.value)))
-        .sort((a, b) => observationDate(b).localeCompare(observationDate(a)))[0];
+      const data = numericMonthlyData(series?.data);
+      const latest = data[0];
+      const value = transformedValue(source, data);
 
-      if (!latest) {
-        return unavailableReading(source, "missing-observation", "BLS returned no monthly observation.", now);
+      if (!latest || value === null) {
+        return unavailableReading(source, "missing-observation", "BLS returned insufficient data for this calculation.", now);
       }
 
-      return createReading(source, Number(latest.value), observationDate(latest), now);
+      return createReading(source, value, observationDate(latest), now);
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "BLS request failed.";

@@ -20,10 +20,14 @@ export function formatReadingValue(value: number, format: IndicatorSourceDefinit
       return `${value.toFixed(2)}%`;
     case "index":
       return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    case "usd-billions":
+      return `$${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}B`;
     case "usd-millions-to-billions":
       return `$${(value / 1_000).toLocaleString("en-US", { maximumFractionDigits: 1 })}B`;
     case "usd-millions-to-trillions":
       return `$${(value / 1_000_000).toLocaleString("en-US", { maximumFractionDigits: 2 })}T`;
+    case "signed-thousands":
+      return `${value >= 0 ? "+" : "−"}${Math.abs(value).toLocaleString("en-US", { maximumFractionDigits: 0 })}K`;
     case "thousands-to-millions":
       return `${(value / 1_000).toLocaleString("en-US", { maximumFractionDigits: 1 })}M`;
     default:
@@ -46,6 +50,7 @@ export function createReading(
     value,
     displayValue: formatReadingValue(value, source.format),
     unit: source.unit,
+    transformation: source.transformation,
     observationDate,
     fetchedAt: now.toISOString(),
     freshness: freshnessForDate(observationDate, source.staleAfterDays, now),
@@ -69,6 +74,7 @@ export function unavailableReading(
     value: null,
     displayValue: "Unavailable",
     unit: source.unit,
+    transformation: source.transformation,
     observationDate: null,
     fetchedAt: now.toISOString(),
     freshness: "unavailable",

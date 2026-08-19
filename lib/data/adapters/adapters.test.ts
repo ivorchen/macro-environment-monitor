@@ -34,6 +34,18 @@ describe("public macro adapters", () => {
     expect(reading.freshness).toBe("fresh");
   });
 
+  it("formats ON RRP in the billions reported by FRED", async () => {
+    const source = FEATURED_SOURCE_DEFINITIONS.find((item) => item.id === "liquidity-on-rrp")!;
+    const fetcher = vi.fn(async () =>
+      jsonResponse({ observations: [{ date: "2026-08-18", value: "0.317" }] }),
+    ) as unknown as typeof fetch;
+
+    const [reading] = await fetchFredReadings([source], "test-key", { fetcher, now });
+
+    expect(reading.displayValue).toBe("$0.32B");
+    expect(reading.unit).toBe("USD billions");
+  });
+
   it("makes missing FRED configuration explicit without making a request", async () => {
     const source = FEATURED_SOURCE_DEFINITIONS.find((item) => item.id === "rates-10y")!;
     const fetcher = vi.fn() as unknown as typeof fetch;
@@ -66,19 +78,32 @@ describe("public macro adapters", () => {
     expect(reading.observationDate).toBe("2026-08-17");
   });
 
-  it("normalizes multiple BLS series from one deterministic response", async () => {
+  it("normalizes BLS levels and calculates the macro-relevant changes", async () => {
     const sources = FEATURED_SOURCE_DEFINITIONS.filter((item) => item.adapter === "bls");
     const fetcher = vi.fn(async () =>
       jsonResponse({
         status: "REQUEST_SUCCEEDED",
         Results: {
-          series: sources.map((source, index) => ({
-            seriesID: source.seriesId,
-            data: [
-              { year: "2026", period: "M07", value: String(index === 2 ? 4.2 : 300 + index) },
-              { year: "2026", period: "M06", value: "100" },
-            ],
-          })),
+          series: [
+            {
+              seriesID: "CUSR0000SA0L1E",
+              data: [
+                { year: "2026", period: "M07", value: "336.789" },
+                { year: "2025", period: "M07", value: "326.123" },
+              ],
+            },
+            {
+              seriesID: "CES0000000001",
+              data: [
+                { year: "2026", period: "M07", value: "158858" },
+                { year: "2026", period: "M06", value: "158785" },
+              ],
+            },
+            {
+              seriesID: "LNS14000000",
+              data: [{ year: "2026", period: "M07", value: "4.1" }],
+            },
+          ],
         },
       }),
     ) as unknown as typeof fetch;
@@ -88,5 +113,8 @@ describe("public macro adapters", () => {
     expect(readings).toHaveLength(3);
     expect(readings.every((reading) => reading.observationDate === "2026-07-31")).toBe(true);
     expect(readings.every((reading) => reading.freshness === "fresh")).toBe(true);
+    expect(readings.find((reading) => reading.id === "inflation-core-cpi")?.displayValue).toBe("3.27%");
+    expect(readings.find((reading) => reading.id === "labor-payrolls")?.displayValue).toBe("+73K");
+    expect(readings.find((reading) => reading.id === "labor-unemployment")?.displayValue).toBe("4.10%");
   });
 });

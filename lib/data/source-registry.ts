@@ -1,6 +1,7 @@
 import type {
   DataFrequency,
   IndicatorSourceDefinition,
+  ReadingCalculation,
   ReadingFormat,
   SourceClassification,
 } from "./types";
@@ -13,6 +14,7 @@ type PublicSourceInput = {
   frequency: DataFrequency;
   unit: string;
   format?: ReadingFormat;
+  calculation?: ReadingCalculation;
   staleAfterDays: number;
   featured?: boolean;
   transformation?: string;
@@ -25,6 +27,7 @@ function fred(input: PublicSourceInput): IndicatorSourceDefinition {
     providerShort: "FRED",
     classification: "aggregated-public",
     format: input.format ?? "number",
+    calculation: input.calculation ?? "latest",
     transformation: input.transformation ?? "Latest reported level",
     revisionPolicy: "Latest-vintage FRED value. Historical reviews must retain the retrieved value and retrieval timestamp because the source series may be revised.",
     sourceUrl: `https://fred.stlouisfed.org/series/${input.seriesId}`,
@@ -40,6 +43,7 @@ function bls(input: PublicSourceInput & { active?: boolean }): IndicatorSourceDe
     providerShort: "BLS",
     classification: "primary-public",
     format: input.format ?? "number",
+    calculation: input.calculation ?? "latest",
     transformation: input.transformation ?? "Latest seasonally adjusted level",
     revisionPolicy: "BLS values can be revised on later releases. Historical reviews must retain the value retrieved at review time.",
     sourceUrl: `https://data.bls.gov/timeseries/${input.seriesId}`,
@@ -64,12 +68,14 @@ function mapped(input: {
   transformation?: string;
   revisionPolicy?: string;
   format?: ReadingFormat;
+  calculation?: ReadingCalculation;
 }): IndicatorSourceDefinition {
   return {
     seriesId: null,
     adapter: null,
     integration: "planned",
     format: "number",
+    calculation: "latest",
     transformation: "Source-specific normalization pending",
     revisionPolicy: "Retain observation date, release or retrieval timestamp, and the value available at review time.",
     ...input,
@@ -89,6 +95,7 @@ export const INDICATOR_SOURCE_REGISTRY: readonly IndicatorSourceDefinition[] = [
     frequency: "daily",
     unit: "USD millions",
     format: "usd-millions-to-billions",
+    calculation: "latest",
     transformation: "Treasury General Account closing balance",
     revisionPolicy: "Daily Treasury Statement records can be corrected. Preserve the retrieved value and timestamp in dated reviews.",
     staleAfterDays: 4,
@@ -97,7 +104,7 @@ export const INDICATOR_SOURCE_REGISTRY: readonly IndicatorSourceDefinition[] = [
     integration: "active",
     featured: true,
   },
-  fred({ id: "liquidity-on-rrp", pillarId: "liquidity", indicator: "ON RRP", seriesId: "RRPONTSYD", frequency: "daily", unit: "USD billions", staleAfterDays: 4, featured: true }),
+  fred({ id: "liquidity-on-rrp", pillarId: "liquidity", indicator: "ON RRP", seriesId: "RRPONTSYD", frequency: "daily", unit: "USD billions", format: "usd-billions", staleAfterDays: 4, featured: true }),
   fred({ id: "liquidity-bank-reserves", pillarId: "liquidity", indicator: "Bank reserves", seriesId: "WRESBAL", frequency: "weekly", unit: "USD millions", format: "usd-millions-to-trillions", staleAfterDays: 10 }),
   fred({ id: "liquidity-broad-usd", pillarId: "liquidity", indicator: "Broad USD", seriesId: "DTWEXBGS", frequency: "daily", unit: "Index Jan 2006=100", format: "index", staleAfterDays: 4 }),
   fred({ id: "liquidity-financial-conditions", pillarId: "liquidity", indicator: "Financial conditions", seriesId: "NFCI", frequency: "weekly", unit: "Standard deviations", staleAfterDays: 10 }),
@@ -109,7 +116,7 @@ export const INDICATOR_SOURCE_REGISTRY: readonly IndicatorSourceDefinition[] = [
   fred({ id: "rates-2s10s", pillarId: "rates", indicator: "2s10s", seriesId: "T10Y2Y", frequency: "daily", unit: "Percentage points", format: "percent", staleAfterDays: 4 }),
   mapped({ id: "rates-term-premium", pillarId: "rates", indicator: "Term premium", provider: "Federal Reserve Bank of New York", providerShort: "NY Fed", classification: "primary-public", frequency: "daily", unit: "Percent", sourceUrl: "https://www.newyorkfed.org/research/data_indicators/term-premia-tabs", staleAfterDays: 5, format: "percent", transformation: "Adrian-Crump-Moench 10-year term-premium estimate" }),
 
-  bls({ id: "inflation-core-cpi", pillarId: "inflation", indicator: "Core CPI", seriesId: "CUSR0000SA0L1E", frequency: "monthly", unit: "Index 1982-84=100", format: "index", staleAfterDays: 45, featured: true, active: true }),
+  bls({ id: "inflation-core-cpi", pillarId: "inflation", indicator: "Core CPI", seriesId: "CUSR0000SA0L1E", frequency: "monthly", unit: "12-month percent change", format: "percent", calculation: "year-over-year-percent", transformation: "Change from the same month one year ago", staleAfterDays: 45, featured: true, active: true }),
   mapped({ id: "inflation-core-pce", pillarId: "inflation", indicator: "Core PCE", provider: "U.S. Bureau of Economic Analysis", providerShort: "BEA", classification: "primary-public", seriesId: "NIPA-T2.3.4-PCEPILFE", frequency: "monthly", unit: "Index 2017=100", format: "index", sourceUrl: "https://www.bea.gov/data/personal-consumption-expenditures-price-index-excluding-food-and-energy", staleAfterDays: 45 }),
   bls({ id: "inflation-ppi", pillarId: "inflation", indicator: "PPI", seriesId: "WPSFD4", frequency: "monthly", unit: "Index Nov 2009=100", format: "index", staleAfterDays: 45 }),
   bls({ id: "inflation-shelter", pillarId: "inflation", indicator: "Shelter", seriesId: "CUSR0000SAH1", frequency: "monthly", unit: "Index 1982-84=100", format: "index", staleAfterDays: 45 }),
@@ -123,7 +130,7 @@ export const INDICATOR_SOURCE_REGISTRY: readonly IndicatorSourceDefinition[] = [
   fred({ id: "growth-industrial-production", pillarId: "growth", indicator: "Industrial production", seriesId: "INDPRO", frequency: "monthly", unit: "Index 2017=100", format: "index", staleAfterDays: 45 }),
   mapped({ id: "growth-housing", pillarId: "growth", indicator: "Housing", provider: "U.S. Census Bureau", providerShort: "Census", classification: "primary-public", seriesId: "HVIP", frequency: "monthly", unit: "Thousands of units", sourceUrl: "https://www.census.gov/construction/nrc/", staleAfterDays: 45, transformation: "Housing starts and permits trend" }),
 
-  bls({ id: "labor-payrolls", pillarId: "labor", indicator: "Payrolls", seriesId: "CES0000000001", frequency: "monthly", unit: "Thousands of persons", format: "thousands-to-millions", staleAfterDays: 45, featured: true, active: true }),
+  bls({ id: "labor-payrolls", pillarId: "labor", indicator: "Payrolls", seriesId: "CES0000000001", frequency: "monthly", unit: "Monthly change, thousands of persons", format: "signed-thousands", calculation: "period-change", transformation: "Change from the prior month", staleAfterDays: 45, featured: true, active: true }),
   bls({ id: "labor-unemployment", pillarId: "labor", indicator: "Unemployment", seriesId: "LNS14000000", frequency: "monthly", unit: "Percent", format: "percent", staleAfterDays: 45, featured: true, active: true }),
   fred({ id: "labor-jobless-claims", pillarId: "labor", indicator: "Jobless claims", seriesId: "ICSA", frequency: "weekly", unit: "Number", staleAfterDays: 10 }),
   bls({ id: "labor-jolts", pillarId: "labor", indicator: "JOLTS", seriesId: "JTS000000000000000JOL", frequency: "monthly", unit: "Level in thousands", staleAfterDays: 50 }),

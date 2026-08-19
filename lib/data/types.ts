@@ -12,9 +12,13 @@ export type ReadingFormat =
   | "number"
   | "percent"
   | "index"
+  | "usd-billions"
   | "usd-millions-to-billions"
   | "usd-millions-to-trillions"
+  | "signed-thousands"
   | "thousands-to-millions";
+
+export type ReadingCalculation = "latest" | "period-change" | "year-over-year-percent";
 
 export type IntegrationStatus = "active" | "credential-required" | "planned" | "licensed";
 
@@ -29,6 +33,7 @@ export type IndicatorSourceDefinition = {
   frequency: DataFrequency;
   unit: string;
   format: ReadingFormat;
+  calculation: ReadingCalculation;
   transformation: string;
   revisionPolicy: string;
   staleAfterDays: number;
@@ -49,6 +54,7 @@ export type IndicatorReading = {
   value: number | null;
   displayValue: string;
   unit: string;
+  transformation: string;
   observationDate: string | null;
   fetchedAt: string;
   freshness: ReadingFreshness;
