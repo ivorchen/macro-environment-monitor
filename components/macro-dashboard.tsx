@@ -35,6 +35,8 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { SourceStatusPanel } from "@/components/source-status-panel";
+import { sourceForIndicator } from "@/lib/data/source-registry";
 import {
   INITIAL_PILLARS,
   SCORE_OPTIONS,
@@ -432,6 +434,7 @@ export function MacroDashboard() {
                     <CardContent className="flex gap-3 p-4 text-xs leading-5 text-[#385346]"><ShieldCheck className="mt-0.5 size-5 shrink-0" /><p className="mb-0"><strong>Research discipline:</strong> verify hypotheses with the Federal Reserve, Treasury, BLS, BEA, Census, SEC filings, and company transcripts.</p></CardContent>
                   </Card>
                 </div>
+                <SourceStatusPanel />
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {pillars.map((pillar, index) => (
                     <Card key={pillar.id} className="group border-[#d9ddd7] bg-[#fbfaf6] shadow-none transition hover:-translate-y-0.5 hover:border-[#a9bcb2] hover:shadow-[0_18px_45px_rgba(23,35,31,.07)]">
@@ -445,7 +448,15 @@ export function MacroDashboard() {
                       </CardHeader>
                       <CardContent>
                         <div className="flex flex-wrap gap-2">
-                          {pillar.indicators.map((indicator) => <span key={indicator} className="rounded-full border border-[#dce0db] bg-white/60 px-2.5 py-1 text-[10px] text-[#5e6d66]">{indicator}</span>)}
+                          {pillar.indicators.map((indicator) => {
+                            const source = sourceForIndicator(pillar.id, indicator);
+                            return (
+                              <span key={indicator} className="inline-flex items-center gap-1.5 rounded-full border border-[#dce0db] bg-white/60 px-2.5 py-1 text-[10px] text-[#5e6d66]">
+                                {indicator}
+                                {source && <i className="font-mono text-[7px] not-italic tracking-[0.08em] text-[#8a9690]">{source.providerShort.toUpperCase()}</i>}
+                              </span>
+                            );
+                          })}
                         </div>
                         <Separator className="my-5" />
                         <div className="flex items-center justify-between text-[10px] text-[#6f7d78]"><span>Current trend</span><span className="flex items-center gap-1.5 font-semibold text-[#33453e]">{pillar.trend}<TrendIcon trend={pillar.trend} /></span></div>
@@ -558,7 +569,7 @@ export function MacroDashboard() {
 
                 <Card className="mt-4 border-[#d9ddd7] bg-[#fbfaf6] shadow-none">
                   <CardContent className="grid gap-4 p-5 md:grid-cols-[1fr_auto] md:items-center">
-                    <div className="flex gap-3"><Database className="mt-0.5 size-5 shrink-0 text-[#175f47]" /><div><p className="mb-1 text-sm font-semibold">Live data integration is the next build phase</p><p className="mb-0 text-xs leading-5 text-[#6f7d78]">The MVP keeps scores explainable and manually controlled. Planned adapters: FRED, U.S. Treasury Fiscal Data, BLS, BEA, and market-data providers.</p></div></div>
+                    <div className="flex gap-3"><Database className="mt-0.5 size-5 shrink-0 text-[#175f47]" /><div><p className="mb-1 text-sm font-semibold">The public source pipeline is active</p><p className="mb-0 text-xs leading-5 text-[#6f7d78]">Treasury and BLS readings load without credentials. Add a server-side FRED API key to enable Federal Reserve, rates, and credit series. Scores remain manually controlled.</p></div></div>
                     <Button variant="outline" className="rounded-full" onClick={() => setActiveTab("indicators")}><Settings2 className="size-4" /> Review source map</Button>
                   </CardContent>
                 </Card>

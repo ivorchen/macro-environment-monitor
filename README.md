@@ -19,6 +19,8 @@ pnpm dev
 
 Open `http://localhost:3000`.
 
+To enable Federal Reserve, rates, and credit readings from FRED, copy `.env.example` to `.env.local` and add a free `FRED_API_KEY`. Treasury Fiscal Data and BLS readings do not require local credentials.
+
 ## Validate
 
 ```bash
@@ -29,4 +31,4 @@ pnpm build
 
 ## Data status
 
-The current dashboard uses clearly labeled illustrative market readings and manually controlled scores. Live adapters for authoritative sources such as FRED, U.S. Treasury Fiscal Data, BLS, BEA, and market-data providers are intentionally left for the next phase so scoring logic remains inspectable before external credentials and provider contracts are chosen.
+The dashboard keeps its cross-asset market cards clearly labeled as illustrative and its pillar scores manually controlled. The indicator workspace now includes normalized public readings from Treasury Fiscal Data and BLS, plus FRED when a server-side API key is configured. Each reading exposes provenance, observation date, and freshness. See [the data-source policy](docs/data-sources.md) for coverage and revision handling.
