@@ -13,6 +13,7 @@ import {
   ChevronRight,
   CircleGauge,
   Database,
+  History,
   LayoutDashboard,
   NotebookPen,
   Plus,
@@ -36,7 +37,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { SourceStatusPanel } from "@/components/source-status-panel";
+import { WeeklyHistoryPanel } from "@/components/weekly-history-panel";
 import { sourceForIndicator } from "@/lib/data/source-registry";
+import type { IndicatorApiResponse } from "@/lib/data/types";
 import {
   INITIAL_PILLARS,
   SCORE_OPTIONS,
@@ -46,6 +49,16 @@ import {
   type Pillar,
   type Score,
 } from "@/lib/macro";
+import {
+  REVIEW_HISTORY_STORAGE_KEY,
+  createWeeklyReviewSnapshot,
+  parseReviewHistory,
+  sortReviewHistory,
+  updateReviewOutcome,
+  type HypothesisDraft,
+  type ReviewOutcome,
+  type WeeklyReviewSnapshot,
+} from "@/lib/review-history";
 import { cn } from "@/lib/utils";
 
 const sampleMarkets = [
@@ -109,6 +122,47 @@ function scoreClasses(score: Score) {
   return "border-[#dfcfaa] bg-[#f5ecd8] text-[#805c22]";
 }
 
+function regimePanelTheme(score: number) {
+  if (score >= 9) {
+    return {
+      background: "#124f3d",
+      accent: "#d7f28d",
+      glow: "rgba(215, 242, 141, 0.16)",
+      shadow: "rgba(18, 79, 61, 0.24)",
+    };
+  }
+  if (score >= 3) {
+    return {
+      background: "#a85422",
+      accent: "#ffd37a",
+      glow: "rgba(255, 211, 122, 0.17)",
+      shadow: "rgba(168, 84, 34, 0.25)",
+    };
+  }
+  if (score >= -2) {
+    return {
+      background: "#9a472d",
+      accent: "#ffd0a2",
+      glow: "rgba(255, 208, 162, 0.16)",
+      shadow: "rgba(154, 71, 45, 0.25)",
+    };
+  }
+  if (score >= -8) {
+    return {
+      background: "#853129",
+      accent: "#ffc09d",
+      glow: "rgba(255, 192, 157, 0.16)",
+      shadow: "rgba(133, 49, 41, 0.27)",
+    };
+  }
+  return {
+    background: "#5d1b24",
+    accent: "#ffb1a5",
+    glow: "rgba(255, 177, 165, 0.16)",
+    shadow: "rgba(93, 27, 36, 0.3)",
+  };
+}
+
 function TrendIcon({ trend }: { trend: Pillar["trend"] }) {
   if (trend === "Improving") return <ArrowUpRight className="size-4 text-[#1d6c50]" aria-hidden="true" />;
   if (trend === "Deteriorating") return <ArrowDownRight className="size-4 text-[#ae5548]" aria-hidden="true" />;
@@ -127,6 +181,7 @@ export function MacroDashboard() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [review, setReview] = useState(initialReview);
   const [completedChecks, setCompletedChecks] = useState<string[]>([]);
+  const [reviewHistory, setReviewHistory] = useState<WeeklyReviewSnapshot[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -136,11 +191,13 @@ export function MacroDashboard() {
       review?: ReviewState;
       completedChecks?: string[];
     } | null = null;
+    let storedHistory: WeeklyReviewSnapshot[] = [];
     try {
       const saved = window.localStorage.getItem("macro-monitor-state-v1");
       if (saved) {
         storedState = JSON.parse(saved);
       }
+      storedHistory = parseReviewHistory(window.localStorage.getItem(REVIEW_HISTORY_STORAGE_KEY));
     } catch {
       // Keep the safe defaults if browser storage is unavailable or invalid.
     }
@@ -149,6 +206,7 @@ export function MacroDashboard() {
       if (storedState?.observations) setObservations(storedState.observations);
       if (storedState?.review) setReview(storedState.review);
       if (storedState?.completedChecks) setCompletedChecks(storedState.completedChecks);
+      setReviewHistory(storedHistory);
       setHydrated(true);
     }, 0);
     return () => window.clearTimeout(hydrationTimer);
@@ -162,8 +220,14 @@ export function MacroDashboard() {
     );
   }, [completedChecks, hydrated, observations, pillars, review]);
 
+  useEffect(() => {
+    if (!hydrated) return;
+    window.localStorage.setItem(REVIEW_HISTORY_STORAGE_KEY, JSON.stringify(reviewHistory));
+  }, [hydrated, reviewHistory]);
+
   const total = useMemo(() => totalScore(pillars), [pillars]);
   const regime = useMemo(() => regimeFromScore(total), [total]);
+  const regimeTheme = useMemo(() => regimePanelTheme(total), [total]);
   const supportive = pillars.filter((pillar) => pillar.score > 0);
   const pressures = pillars.filter((pillar) => pillar.score < 0);
   const completion = Math.round((completedChecks.length / dailyChecks.length) * 100);
@@ -191,6 +255,54 @@ export function MacroDashboard() {
     setCompletedChecks([]);
   }
 
+  async function saveWeeklyReview(reviewDate: string, hypothesis: HypothesisDraft) {
+    if (reviewHistory.some((savedReview) => savedReview.reviewDate === reviewDate)) {
+      return "A review already exists for this date. Historical evidence is immutable; choose a new date.";
+    }
+
+    let payload: IndicatorApiResponse;
+    try {
+      const response = await fetch("/api/indicators", { cache: "no-store" });
+      if (!response.ok) return `The indicator snapshot returned ${response.status}. Try again before saving.`;
+      payload = (await response.json()) as IndicatorApiResponse;
+    } catch {
+      return "The indicator snapshot could not be captured. Check the source service and try again.";
+    }
+
+    const snapshot = createWeeklyReviewSnapshot({
+      id: globalThis.crypto?.randomUUID?.() ?? `review-${Date.now()}`,
+      reviewDate,
+      savedAt: new Date().toISOString(),
+      totalScore: total,
+      regimeLabel: regime.label,
+      posture: regime.posture,
+      pillars,
+      drivers: {
+        growth: review.growth,
+        inflation: review.inflation,
+        liquidity: review.liquidity,
+      },
+      portfolio: {
+        increaseExposure: review.increaseExposure,
+        reduceRisk: review.reduceRisk,
+        favoredSectors: review.favoredSectors,
+        pressuredSectors: review.pressuredSectors,
+        invalidation: review.invalidation,
+      },
+      observations,
+      completedChecks,
+      indicatorReadings: payload.readings,
+      hypothesis,
+    });
+
+    setReviewHistory((current) => sortReviewHistory([snapshot, ...current]));
+    return null;
+  }
+
+  function reviseOutcome(id: string, outcome: Pick<ReviewOutcome, "rating" | "note">) {
+    setReviewHistory((current) => updateReviewOutcome(current, id, outcome, new Date().toISOString()));
+  }
+
   return (
     <TooltipProvider>
       <main className="min-h-screen bg-[#f3f2ec] text-[#17231f]">
@@ -207,6 +319,7 @@ export function MacroDashboard() {
               { value: "overview", label: "Overview", icon: LayoutDashboard },
               { value: "indicators", label: "Indicators", icon: BarChart3 },
               { value: "review", label: "Weekly review", icon: BookOpenCheck },
+              { value: "journal", label: "Decision journal", icon: History },
             ].map((item) => (
               <Tooltip key={item.value}>
                 <TooltipTrigger asChild>
@@ -253,6 +366,7 @@ export function MacroDashboard() {
                     <TabsTrigger value="overview" className="rounded-full px-4 text-xs">Overview</TabsTrigger>
                     <TabsTrigger value="indicators" className="rounded-full px-4 text-xs">Indicators</TabsTrigger>
                     <TabsTrigger value="review" className="rounded-full px-4 text-xs">Review</TabsTrigger>
+                    <TabsTrigger value="journal" className="rounded-full px-4 text-xs">Journal</TabsTrigger>
                   </TabsList>
                   <Button className="rounded-full bg-[#175f47] px-4 text-xs text-white hover:bg-[#104b38]" onClick={() => setActiveTab("review")}>
                     <NotebookPen className="size-4" />
@@ -274,17 +388,34 @@ export function MacroDashboard() {
                 </div>
 
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(310px,.7fr)]">
-                  <Card className="grid-bg overflow-hidden border-0 bg-[#175f47] text-white shadow-[0_24px_70px_rgba(23,95,71,.16)]">
+                  <Card
+                    className="grid-bg overflow-hidden border-0 text-white transition-[background-color,box-shadow] duration-500"
+                    style={{
+                      backgroundColor: regimeTheme.background,
+                      boxShadow: `0 24px 70px ${regimeTheme.shadow}`,
+                    }}
+                  >
                     <CardHeader className="flex-row items-center justify-between space-y-0 pb-0">
                       <p className="text-[9px] font-extrabold tracking-[0.2em] text-white/55">CURRENT REGIME</p>
                       <span className="flex items-center gap-2 text-[9px] font-extrabold tracking-[0.16em] text-white/55">
-                        <i className="size-2 rounded-full bg-[#cce77e] shadow-[0_0_0_5px_rgba(204,231,126,.12)]" /> WORKING VIEW
+                        <i
+                          className="size-2 rounded-full transition-colors duration-500"
+                          style={{
+                            backgroundColor: regimeTheme.accent,
+                            boxShadow: `0 0 0 5px ${regimeTheme.glow}`,
+                          }}
+                        /> WORKING VIEW
                       </span>
                     </CardHeader>
                     <CardContent className="pt-8">
                       <div className="grid gap-8 md:grid-cols-[1fr_.9fr] md:items-center">
                         <div>
-                          <p className="mb-2 text-xs font-extrabold tracking-[0.1em] text-[#d6ef95]">{regime.label.toUpperCase()}</p>
+                          <p
+                            className="mb-2 text-xs font-extrabold tracking-[0.1em] transition-colors duration-500"
+                            style={{ color: regimeTheme.accent }}
+                          >
+                            {regime.label.toUpperCase()}
+                          </p>
                           <p className="font-display text-[88px] leading-[.82] tracking-[-0.08em] sm:text-[112px]">
                             {total > 0 ? "+" : ""}{total}<span className="ml-2 font-sans text-base tracking-normal text-white/45">/ 18</span>
                           </p>
@@ -300,7 +431,15 @@ export function MacroDashboard() {
                       <div className="mt-9 grid grid-cols-[auto_1fr_auto] items-center gap-3 text-[8px] font-bold tracking-[0.16em] text-white/45">
                         <span>HOSTILE</span>
                         <div className="relative h-px bg-white/20">
-                          <i className="absolute top-1/2 size-2.5 -translate-y-1/2 rounded-full border-2 border-[#175f47] bg-[#cce77e] outline outline-1 outline-[#cce77e]" style={{ left: `${((total + 18) / 36) * 100}%` }} />
+                          <i
+                            className="absolute top-1/2 size-2.5 -translate-y-1/2 rounded-full border-2 outline outline-1 transition-[background-color,border-color,outline-color,left] duration-500"
+                            style={{
+                              left: `${((total + 18) / 36) * 100}%`,
+                              backgroundColor: regimeTheme.accent,
+                              borderColor: regimeTheme.background,
+                              outlineColor: regimeTheme.accent,
+                            }}
+                          />
                         </div>
                         <span>SUPPORTIVE</span>
                       </div>
@@ -477,7 +616,7 @@ export function MacroDashboard() {
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" className="rounded-full" onClick={resetWorkspace}><RotateCcw className="size-4" /> Reset sample</Button>
-                    <Button className="rounded-full bg-[#175f47] hover:bg-[#104b38]"><Save className="size-4" /> Saved locally</Button>
+                    <Button className="rounded-full bg-[#175f47] hover:bg-[#104b38]" onClick={() => setActiveTab("journal")}><Save className="size-4" /> Open journal</Button>
                   </div>
                 </div>
 
@@ -574,6 +713,18 @@ export function MacroDashboard() {
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+
+            <TabsContent value="journal" className="m-0 focus-visible:outline-none">
+              <WeeklyHistoryPanel
+                history={reviewHistory}
+                totalScore={total}
+                regimeLabel={regime.label}
+                posture={regime.posture}
+                defaultInvalidation={review.invalidation}
+                onSaveReview={saveWeeklyReview}
+                onUpdateOutcome={reviseOutcome}
+              />
             </TabsContent>
           </Tabs>
         </div>

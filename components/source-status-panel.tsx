@@ -175,6 +175,16 @@ export function SourceStatusPanel() {
 
       <p className="mt-3 text-[10px] leading-4 text-[#74817b]">
         Observation dates and retrieval freshness are shown separately. FRED readings require a server-side API key; manual scoring remains independent of source availability.
+        {payload && (
+          <span className="ml-1">
+            {payload.cache.backend === "redis"
+              ? `Redis cache: ${payload.cache.hits.length} provider hit${payload.cache.hits.length === 1 ? "" : "s"}, ${payload.cache.misses.length} refreshed.`
+              : "Redis cache is not configured; readings are fetched directly."}
+          </span>
+        )}
+      </p>
+      <p className="mt-1 text-[9px] leading-4 text-[#87928d]">
+        This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis.
       </p>
     </section>
   );

@@ -2,6 +2,29 @@ import type { IndicatorReading, IndicatorSourceDefinition, ReadingFreshness } fr
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+function periodEndForFreshness(
+  observationDate: string,
+  frequency: IndicatorSourceDefinition["frequency"],
+) {
+  const observedAt = new Date(`${observationDate}T00:00:00Z`);
+  if (Number.isNaN(observedAt.getTime())) return observationDate;
+
+  if (frequency === "monthly") {
+    return new Date(
+      Date.UTC(observedAt.getUTCFullYear(), observedAt.getUTCMonth() + 1, 0),
+    ).toISOString().slice(0, 10);
+  }
+
+  if (frequency === "quarterly") {
+    const quarterEndMonth = Math.floor(observedAt.getUTCMonth() / 3) * 3 + 3;
+    return new Date(
+      Date.UTC(observedAt.getUTCFullYear(), quarterEndMonth, 0),
+    ).toISOString().slice(0, 10);
+  }
+
+  return observationDate;
+}
+
 export function freshnessForDate(
   observationDate: string,
   staleAfterDays: number,
@@ -53,7 +76,11 @@ export function createReading(
     transformation: source.transformation,
     observationDate,
     fetchedAt: now.toISOString(),
-    freshness: freshnessForDate(observationDate, source.staleAfterDays, now),
+    freshness: freshnessForDate(
+      periodEndForFreshness(observationDate, source.frequency),
+      source.staleAfterDays,
+      now,
+    ),
     sourceUrl: source.sourceUrl,
     seriesId: source.seriesId,
   };

@@ -168,6 +168,31 @@ export const INDICATOR_SOURCE_REGISTRY: readonly IndicatorSourceDefinition[] = [
 
 export const FEATURED_SOURCE_DEFINITIONS = INDICATOR_SOURCE_REGISTRY.filter((source) => source.featured);
 
+const BLS_FRED_FALLBACK_SERIES: Readonly<Record<string, string>> = {
+  "inflation-core-cpi": "CPILFESL",
+  "labor-payrolls": "PAYEMS",
+  "labor-unemployment": "UNRATE",
+};
+
+export function fredFallbackForBlsSource(
+  source: IndicatorSourceDefinition,
+): IndicatorSourceDefinition | null {
+  const seriesId = BLS_FRED_FALLBACK_SERIES[source.id];
+  if (!seriesId) return null;
+
+  return {
+    ...source,
+    provider: "Federal Reserve Bank of St. Louis (FRED), sourced from BLS",
+    providerShort: "FRED / BLS",
+    classification: "aggregated-public",
+    seriesId,
+    sourceUrl: `https://fred.stlouisfed.org/series/${seriesId}`,
+    adapter: "fred",
+    integration: "credential-required",
+    revisionPolicy: "BLS data retrieved through FRED can be revised. Historical reviews retain the retrieved value and retrieval timestamp.",
+  };
+}
+
 export function sourceForIndicator(pillarId: string, indicator: string) {
   return INDICATOR_SOURCE_REGISTRY.find(
     (source) => source.pillarId === pillarId && source.indicator === indicator,

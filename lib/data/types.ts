@@ -67,6 +67,12 @@ export type IndicatorReading = {
 export type IndicatorApiResponse = {
   generatedAt: string;
   readings: IndicatorReading[];
+  cache: {
+    backend: "redis" | "none";
+    hits: Array<"fred" | "bls" | "treasury">;
+    misses: Array<"fred" | "bls" | "treasury">;
+    bypassed: Array<"fred" | "bls" | "treasury">;
+  };
   summary: {
     fresh: number;
     stale: number;

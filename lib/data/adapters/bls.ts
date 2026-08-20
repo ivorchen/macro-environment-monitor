@@ -1,6 +1,10 @@
 import { createReading, unavailableReading } from "../freshness";
 import type { AdapterOptions, IndicatorReading, IndicatorSourceDefinition } from "../types";
 
+export type BlsAdapterOptions = AdapterOptions & {
+  registrationKey?: string;
+};
+
 type BlsDatum = {
   year: string;
   period: string;
@@ -54,7 +58,7 @@ function transformedValue(source: IndicatorSourceDefinition, data: BlsDatum[]) {
 
 export async function fetchBlsReadings(
   sources: readonly IndicatorSourceDefinition[],
-  options: AdapterOptions = {},
+  options: BlsAdapterOptions = {},
 ): Promise<IndicatorReading[]> {
   const now = options.now ?? new Date();
   const fetcher = options.fetcher ?? fetch;
@@ -70,6 +74,7 @@ export async function fetchBlsReadings(
         seriesid: sources.map((source) => source.seriesId),
         startyear: String(now.getUTCFullYear() - 1),
         endyear: String(now.getUTCFullYear()),
+        ...(options.registrationKey ? { registrationkey: options.registrationKey } : {}),
       }),
       signal: AbortSignal.timeout(8_000),
     });

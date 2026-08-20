@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { FEATURED_SOURCE_DEFINITIONS } from "../source-registry";
 import { fetchBlsReadings } from "./bls";
+import { fetchBlsReadingsWithFredFallback } from "./bls-with-fred-fallback";
 import { fetchFredReadings } from "./fred";
 import { fetchTreasuryReading } from "./treasury";
 
@@ -80,7 +81,7 @@ describe("public macro adapters", () => {
 
   it("normalizes BLS levels and calculates the macro-relevant changes", async () => {
     const sources = FEATURED_SOURCE_DEFINITIONS.filter((item) => item.adapter === "bls");
-    const fetcher = vi.fn(async () =>
+    const fetchMock = vi.fn(async () =>
       jsonResponse({
         status: "REQUEST_SUCCEEDED",
         Results: {
@@ -106,9 +107,14 @@ describe("public macro adapters", () => {
           ],
         },
       }),
-    ) as unknown as typeof fetch;
+    );
+    const fetcher = fetchMock as unknown as typeof fetch;
 
-    const readings = await fetchBlsReadings(sources, { fetcher, now });
+    const readings = await fetchBlsReadings(sources, {
+      fetcher,
+      now,
+      registrationKey: "test-bls-key",
+    });
 
     expect(readings).toHaveLength(3);
     expect(readings.every((reading) => reading.observationDate === "2026-07-31")).toBe(true);
@@ -116,5 +122,49 @@ describe("public macro adapters", () => {
     expect(readings.find((reading) => reading.id === "inflation-core-cpi")?.displayValue).toBe("3.27%");
     expect(readings.find((reading) => reading.id === "labor-payrolls")?.displayValue).toBe("+73K");
     expect(readings.find((reading) => reading.id === "labor-unemployment")?.displayValue).toBe("4.10%");
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      registrationkey: "test-bls-key",
+    });
+  });
+
+  it("falls back to equivalent FRED series when BLS reaches its daily allowance", async () => {
+    const sources = FEATURED_SOURCE_DEFINITIONS.filter((item) => item.adapter === "bls");
+    const fetcher = vi.fn(async (input: URL | RequestInfo) => {
+      const url = String(input);
+      if (url.includes("api.bls.gov")) {
+        return jsonResponse({
+          status: "REQUEST_FAILED",
+          message: ["The daily threshold has been reached."],
+        });
+      }
+
+      const seriesId = new URL(url).searchParams.get("series_id");
+      const observations = {
+        CPILFESL: [
+          { date: "2026-07-01", value: "340" },
+          { date: "2025-07-01", value: "330" },
+        ],
+        PAYEMS: [
+          { date: "2026-07-01", value: "158858" },
+          { date: "2026-06-01", value: "158785" },
+        ],
+        UNRATE: [{ date: "2026-07-01", value: "4.1" }],
+      }[seriesId as "CPILFESL" | "PAYEMS" | "UNRATE"];
+      return jsonResponse({ observations });
+    }) as unknown as typeof fetch;
+
+    const readings = await fetchBlsReadingsWithFredFallback(sources, {
+      fetcher,
+      now,
+      fredApiKey: "test-fred-key",
+    });
+
+    expect(readings).toHaveLength(3);
+    expect(readings.every((reading) => reading.freshness === "fresh")).toBe(true);
+    expect(readings.every((reading) => reading.providerShort === "FRED / BLS")).toBe(true);
+    expect(readings.find((reading) => reading.id === "inflation-core-cpi")?.displayValue).toBe("3.03%");
+    expect(readings.find((reading) => reading.id === "labor-payrolls")?.displayValue).toBe("+73K");
+    expect(readings.find((reading) => reading.id === "labor-unemployment")?.displayValue).toBe("4.10%");
+    expect(fetcher).toHaveBeenCalledTimes(4);
   });
 });
