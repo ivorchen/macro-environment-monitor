@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Activity,
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
@@ -30,6 +29,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MarketSnapshotPanel } from "@/components/market-snapshot-panel";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
@@ -60,15 +60,6 @@ import {
   type WeeklyReviewSnapshot,
 } from "@/lib/review-history";
 import { cn } from "@/lib/utils";
-
-const sampleMarkets = [
-  { name: "S&P 500", symbol: "SPX", value: "6,462", move: "+0.28%", direction: "up" },
-  { name: "Nasdaq 100", symbol: "NDX", value: "23,713", move: "+0.42%", direction: "up" },
-  { name: "Equal weight", symbol: "RSP", value: "189.41", move: "−0.14%", direction: "down" },
-  { name: "10Y real yield", symbol: "DFII10", value: "1.78%", move: "−3 bp", direction: "down-good" },
-  { name: "High yield", symbol: "HY OAS", value: "2.89%", move: "+1 bp", direction: "flat" },
-  { name: "Volatility", symbol: "VIX", value: "14.82", move: "−2.1%", direction: "down-good" },
-];
 
 const releaseCalendar = [
   { day: "20", month: "AUG", event: "FOMC minutes", importance: "High" },
@@ -541,23 +532,7 @@ export function MacroDashboard() {
                   </Card>
                 </div>
 
-                <section className="mt-4">
-                  <div className="mb-4 flex items-end justify-between">
-                    <div><p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">CROSS-ASSET CONFIRMATION</p><h3 className="font-display text-3xl">Market snapshot</h3></div>
-                    <Badge variant="outline" className="border-[#d4d9d3] bg-[#fbfaf6] text-[9px] text-[#6f7d78]">ILLUSTRATIVE DATA</Badge>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                    {sampleMarkets.map((market) => (
-                      <Card key={market.symbol} className="border-[#d9ddd7] bg-[#fbfaf6] shadow-none">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between"><span className="font-mono text-[9px] font-bold text-[#718079]">{market.symbol}</span><Activity className="size-3.5 text-[#8b9892]" /></div>
-                          <p className="mb-0 mt-5 text-2xl font-semibold tracking-[-0.04em]">{market.value}</p>
-                          <div className="mt-1 flex items-center justify-between text-[10px]"><span className="text-[#74817b]">{market.name}</span><span className={market.direction === "up" || market.direction === "down-good" ? "text-[#1d6c50]" : market.direction === "down" ? "text-[#ae5548]" : "text-[#7b6a45]"}>{market.move}</span></div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </section>
+                <MarketSnapshotPanel />
               </div>
             </TabsContent>
 

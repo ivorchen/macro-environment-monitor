@@ -40,6 +40,13 @@ function formatDate(value: string | null) {
   }).format(new Date(`${value}T00:00:00Z`));
 }
 
+function credentialLabel(reading: IndicatorReading) {
+  if (reading.providerShort === "BEA") return "BEA_API_KEY";
+  if (reading.providerShort === "Census") return "CENSUS_API_KEY";
+  if (reading.providerShort === "FMP") return "FMP_API_KEY";
+  return "FRED_API_KEY";
+}
+
 export function SourceStatusPanel() {
   const [payload, setPayload] = useState<IndicatorApiResponse | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -81,8 +88,8 @@ export function SourceStatusPanel() {
     <section className="mb-8" aria-labelledby="authoritative-snapshot-title">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">AUTHORITATIVE SOURCE PIPELINE</p>
-          <h3 id="authoritative-snapshot-title" className="font-display text-3xl">Latest public readings</h3>
+          <p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">ATTRIBUTED SOURCE PIPELINE</p>
+          <h3 id="authoritative-snapshot-title" className="font-display text-3xl">Latest source readings</h3>
         </div>
         <div className="flex items-center gap-2">
           {payload && (
@@ -155,7 +162,7 @@ export function SourceStatusPanel() {
                 <div className="mt-4 flex items-center justify-between gap-2 border-t border-[#e1e3df] pt-3 text-[9px] text-[#74817b]">
                   <span className="flex items-center gap-1.5">
                     {reading.freshness === "fresh" ? <CheckCircle2 className="size-3" /> : reading.freshness === "stale" ? <Clock3 className="size-3" /> : <Server className="size-3" />}
-                    {reading.errorCode === "configuration-required" ? "FRED_API_KEY" : formatDate(reading.observationDate)}
+                    {reading.errorCode === "configuration-required" ? credentialLabel(reading) : formatDate(reading.observationDate)}
                   </span>
                   <a
                     href={reading.sourceUrl}
@@ -174,7 +181,7 @@ export function SourceStatusPanel() {
       )}
 
       <p className="mt-3 text-[10px] leading-4 text-[#74817b]">
-        Observation dates and retrieval freshness are shown separately. FRED readings require a server-side API key; manual scoring remains independent of source availability.
+        Observation dates and retrieval freshness are shown separately. Optional BEA, Census, and FMP indicators appear only when their server-side API keys are configured; a missing FRED key remains explicit. Manual scoring remains independent of source availability.
         {payload && (
           <span className="ml-1">
             {payload.cache.backend === "redis"
@@ -185,6 +192,9 @@ export function SourceStatusPanel() {
       </p>
       <p className="mt-1 text-[9px] leading-4 text-[#87928d]">
         This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis.
+      </p>
+      <p className="mt-1 text-[9px] leading-4 text-[#87928d]">
+        FMP readings require an account plan licensed for the operator&apos;s intended use and display audience.
       </p>
     </section>
   );

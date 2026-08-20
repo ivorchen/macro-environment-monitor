@@ -45,6 +45,8 @@ export function formatReadingValue(value: number, format: IndicatorSourceDefinit
       return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
     case "usd-billions":
       return `$${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}B`;
+    case "usd-dollars-to-billions":
+      return `$${(value / 1_000_000_000).toLocaleString("en-US", { maximumFractionDigits: 1 })}B`;
     case "usd-millions-to-billions":
       return `$${(value / 1_000).toLocaleString("en-US", { maximumFractionDigits: 1 })}B`;
     case "usd-millions-to-trillions":

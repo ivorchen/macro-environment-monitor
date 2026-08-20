@@ -20,11 +20,13 @@ pnpm dev
 
 Open `http://localhost:3000`.
 
-To enable Federal Reserve, rates, and credit readings from FRED, copy `.env.example` to `.env.local` and add a free `FRED_API_KEY`. Treasury Fiscal Data and BLS readings do not require local credentials.
+Copy `.env.example` to `.env.local` and add keys for the sources you want to enable. `FRED_API_KEY`, `BEA_API_KEY`, and `CENSUS_API_KEY` enable their respective public APIs. BEA and Census indicators are automatically omitted from the API and UI until their keys are configured. Treasury Fiscal Data and BLS readings do not require a key, although an optional `BLS_API_KEY` raises the BLS request allowance.
 
 An optional `BLS_API_KEY` raises BLS's daily request allowance. When anonymous BLS access is exhausted, the featured Core CPI, payrolls, and unemployment readings automatically fall back to their BLS-originated FRED series using `FRED_API_KEY`.
 
-To enable shared source caching, also set `REDIS_URL` to a `redis://` or TLS `rediss://` connection string. FRED and Treasury provider payloads are cached for one hour; BLS payloads are cached for twelve hours. Redis failures fall back to direct source requests.
+`FMP_API_KEY` enables the selected licensed market-data integration. Its indicators are automatically omitted from the API and UI until the key is configured. The first adapter calculates transparent 20-session relative returns for KRE/SPY, RSP/SPY, IWM/SPY, and XLI/XLP. Choose an FMP subscription whose usage and display rights match your deployment; a key alone does not grant redistribution rights.
+
+To enable shared source caching, also set `REDIS_URL` to a `redis://` or TLS `rediss://` connection string. Redis is required for FMP quota protection. FRED and Treasury provider payloads are cached for one hour, BLS payloads for twelve hours, and FMP historical breadth payloads for twenty-four hours. FMP calls fail closed when the shared quota ledger is unavailable.
 
 ## Docker
 
@@ -71,9 +73,9 @@ Add your API keys to the new `.env.local`; that file is intentionally excluded f
 
 ## Data status
 
-The dashboard keeps its cross-asset market cards clearly labeled as illustrative and its pillar scores manually controlled. The indicator workspace now includes normalized public readings from Treasury Fiscal Data and BLS, plus FRED when a server-side API key is configured. Each reading exposes provenance, observation date, and freshness. See [the data-source policy](docs/data-sources.md) for coverage and revision handling.
+The dashboard keeps its pillar scores manually controlled. The cross-asset snapshot now uses quota-protected FMP quotes where the configured plan permits them and daily-close FRED observations otherwise. The indicator workspace includes normalized public readings from Treasury Fiscal Data and BLS; keyed BEA, Census, and FRED readings; and keyed FMP breadth proxies. Each reading exposes provenance, observation date, calculation, and freshness. See [the data-source policy](docs/data-sources.md) for coverage, licensing boundaries, and revision handling.
 
-The S&P 500, Nasdaq 100, equal-weight S&P 500, and VIX cards are illustrative placeholders. They are not live, delayed, or periodically refreshed market quotes.
+The S&P 500 and VIX cards use individual FMP quotes supported by the configured Basic plan. Nasdaq 100, 10-year real yield, and high-yield OAS use daily FRED observations. RSP is shown as unavailable because its quote is not included in the configured FMP Basic entitlement. The snapshot refreshes from Redis every five minutes while visible; upstream data is cached for 55 minutes during market hours and six hours outside the market window.
 
 ## Weekly history
 

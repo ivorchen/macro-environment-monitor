@@ -52,6 +52,54 @@ function bls(input: PublicSourceInput & { active?: boolean }): IndicatorSourceDe
   };
 }
 
+function bea(input: PublicSourceInput): IndicatorSourceDefinition {
+  return {
+    ...input,
+    provider: "U.S. Bureau of Economic Analysis",
+    providerShort: "BEA",
+    classification: "primary-public",
+    format: input.format ?? "number",
+    calculation: input.calculation ?? "latest",
+    transformation: input.transformation ?? "Latest reported level",
+    revisionPolicy: "BEA NIPA values are revised. Dated reviews retain the value and retrieval timestamp available at review time.",
+    sourceUrl: "https://www.bea.gov/data/personal-consumption-expenditures-price-index-excluding-food-and-energy",
+    adapter: "bea",
+    integration: "credential-required",
+  };
+}
+
+function census(input: PublicSourceInput): IndicatorSourceDefinition {
+  return {
+    ...input,
+    provider: "U.S. Census Bureau",
+    providerShort: "Census",
+    classification: "primary-public",
+    format: input.format ?? "number",
+    calculation: input.calculation ?? "latest",
+    transformation: input.transformation ?? "Latest seasonally adjusted level",
+    revisionPolicy: "Census economic indicators are revised and the API exposes current-vintage history. Dated reviews retain the forward snapshot and retrieval timestamp.",
+    sourceUrl: "https://www.census.gov/retail/index.html",
+    adapter: "census",
+    integration: "credential-required",
+  };
+}
+
+function fmp(input: PublicSourceInput): IndicatorSourceDefinition {
+  return {
+    ...input,
+    provider: "Financial Modeling Prep",
+    providerShort: "FMP",
+    classification: "licensed-market-data",
+    format: input.format ?? "percent",
+    calculation: input.calculation ?? "latest",
+    transformation: input.transformation ?? "20-session relative return",
+    revisionPolicy: "End-of-day prices can be corrected by the vendor. Dated reviews retain the retrieved observations and calculation timestamp.",
+    sourceUrl: "https://site.financialmodelingprep.com/developer/docs/stable",
+    adapter: "fmp",
+    integration: "credential-required",
+  };
+}
+
 function mapped(input: {
   id: string;
   pillarId: string;
@@ -104,6 +152,26 @@ export const INDICATOR_SOURCE_REGISTRY: readonly IndicatorSourceDefinition[] = [
     integration: "active",
     featured: true,
   },
+  {
+    id: "liquidity-treasury-issuance",
+    pillarId: "liquidity",
+    indicator: "Treasury issuance",
+    provider: "U.S. Treasury Fiscal Data",
+    providerShort: "Treasury",
+    classification: "primary-public",
+    seriesId: "auctions_query:offering_amt",
+    frequency: "event-driven",
+    unit: "USD",
+    format: "usd-dollars-to-billions",
+    calculation: "latest",
+    transformation: "Offering amount for the latest completed Treasury security auction",
+    revisionPolicy: "Treasury auction records can be corrected. Preserve the retrieved auction amount and timestamp in dated reviews.",
+    staleAfterDays: 7,
+    sourceUrl: "https://fiscaldata.treasury.gov/datasets/treasury-securities-auctions-data/",
+    adapter: "treasury",
+    integration: "active",
+    featured: true,
+  },
   fred({ id: "liquidity-on-rrp", pillarId: "liquidity", indicator: "ON RRP", seriesId: "RRPONTSYD", frequency: "daily", unit: "USD billions", format: "usd-billions", staleAfterDays: 4, featured: true }),
   fred({ id: "liquidity-bank-reserves", pillarId: "liquidity", indicator: "Bank reserves", seriesId: "WRESBAL", frequency: "weekly", unit: "USD millions", format: "usd-millions-to-trillions", staleAfterDays: 10 }),
   fred({ id: "liquidity-broad-usd", pillarId: "liquidity", indicator: "Broad USD", seriesId: "DTWEXBGS", frequency: "daily", unit: "Index Jan 2006=100", format: "index", staleAfterDays: 4 }),
@@ -117,7 +185,7 @@ export const INDICATOR_SOURCE_REGISTRY: readonly IndicatorSourceDefinition[] = [
   mapped({ id: "rates-term-premium", pillarId: "rates", indicator: "Term premium", provider: "Federal Reserve Bank of New York", providerShort: "NY Fed", classification: "primary-public", frequency: "daily", unit: "Percent", sourceUrl: "https://www.newyorkfed.org/research/data_indicators/term-premia-tabs", staleAfterDays: 5, format: "percent", transformation: "Adrian-Crump-Moench 10-year term-premium estimate" }),
 
   bls({ id: "inflation-core-cpi", pillarId: "inflation", indicator: "Core CPI", seriesId: "CUSR0000SA0L1E", frequency: "monthly", unit: "12-month percent change", format: "percent", calculation: "year-over-year-percent", transformation: "Change from the same month one year ago", staleAfterDays: 45, featured: true, active: true }),
-  mapped({ id: "inflation-core-pce", pillarId: "inflation", indicator: "Core PCE", provider: "U.S. Bureau of Economic Analysis", providerShort: "BEA", classification: "primary-public", seriesId: "NIPA-T2.3.4-PCEPILFE", frequency: "monthly", unit: "Index 2017=100", format: "index", sourceUrl: "https://www.bea.gov/data/personal-consumption-expenditures-price-index-excluding-food-and-energy", staleAfterDays: 45 }),
+  bea({ id: "inflation-core-pce", pillarId: "inflation", indicator: "Core PCE", seriesId: "NIPA-T20804-Line25", frequency: "monthly", unit: "12-month percent change", format: "percent", calculation: "year-over-year-percent", transformation: "Change in the Core PCE price index from the same month one year ago", staleAfterDays: 60, featured: true }),
   bls({ id: "inflation-ppi", pillarId: "inflation", indicator: "PPI", seriesId: "WPSFD4", frequency: "monthly", unit: "Index Nov 2009=100", format: "index", staleAfterDays: 45 }),
   bls({ id: "inflation-shelter", pillarId: "inflation", indicator: "Shelter", seriesId: "CUSR0000SAH1", frequency: "monthly", unit: "Index 1982-84=100", format: "index", staleAfterDays: 45 }),
   bls({ id: "inflation-wages-eci", pillarId: "inflation", indicator: "Wages / ECI", seriesId: "CIU1010000000000A", frequency: "quarterly", unit: "Index Dec 2005=100", format: "index", staleAfterDays: 120 }),
@@ -126,7 +194,7 @@ export const INDICATOR_SOURCE_REGISTRY: readonly IndicatorSourceDefinition[] = [
   mapped({ id: "growth-gdp-nowcast", pillarId: "growth", indicator: "GDP / nowcast", provider: "Federal Reserve Bank of Atlanta", providerShort: "Atlanta Fed", classification: "primary-public", frequency: "event-driven", unit: "Annualized percent", format: "percent", sourceUrl: "https://www.atlantafed.org/cqer/research/gdpnow", staleAfterDays: 14, transformation: "Latest GDPNow estimate" }),
   mapped({ id: "growth-ism-manufacturing", pillarId: "growth", indicator: "ISM manufacturing", provider: "Institute for Supply Management", providerShort: "ISM", classification: "licensed-market-data", frequency: "monthly", unit: "Diffusion index", format: "index", sourceUrl: "https://www.ismworld.org/supply-management-news-and-reports/reports/ism-report-on-business/", integration: "licensed", staleAfterDays: 40 }),
   mapped({ id: "growth-ism-services", pillarId: "growth", indicator: "ISM services", provider: "Institute for Supply Management", providerShort: "ISM", classification: "licensed-market-data", frequency: "monthly", unit: "Diffusion index", format: "index", sourceUrl: "https://www.ismworld.org/supply-management-news-and-reports/reports/ism-report-on-business/", integration: "licensed", staleAfterDays: 40 }),
-  mapped({ id: "growth-retail-sales", pillarId: "growth", indicator: "Retail sales", provider: "U.S. Census Bureau", providerShort: "Census", classification: "primary-public", seriesId: "MARTS", frequency: "monthly", unit: "USD millions", sourceUrl: "https://www.census.gov/retail/index.html", staleAfterDays: 45 }),
+  census({ id: "growth-retail-sales", pillarId: "growth", indicator: "Retail sales", seriesId: "MARTS-44000-SM-SA", frequency: "monthly", unit: "USD millions", format: "usd-millions-to-billions", transformation: "Advance monthly retail-trade sales, seasonally adjusted", staleAfterDays: 45, featured: true }),
   fred({ id: "growth-industrial-production", pillarId: "growth", indicator: "Industrial production", seriesId: "INDPRO", frequency: "monthly", unit: "Index 2017=100", format: "index", staleAfterDays: 45 }),
   mapped({ id: "growth-housing", pillarId: "growth", indicator: "Housing", provider: "U.S. Census Bureau", providerShort: "Census", classification: "primary-public", seriesId: "HVIP", frequency: "monthly", unit: "Thousands of units", sourceUrl: "https://www.census.gov/construction/nrc/", staleAfterDays: 45, transformation: "Housing starts and permits trend" }),
 
@@ -141,7 +209,7 @@ export const INDICATOR_SOURCE_REGISTRY: readonly IndicatorSourceDefinition[] = [
   fred({ id: "credit-ig-spreads", pillarId: "credit", indicator: "IG spreads", seriesId: "BAMLC0A0CM", frequency: "daily", unit: "Percent", format: "percent", staleAfterDays: 4 }),
   mapped({ id: "credit-default-outlook", pillarId: "credit", indicator: "Default outlook", provider: "Moody's / S&P Global", providerShort: "Credit research", classification: "licensed-market-data", frequency: "monthly", unit: "Percent", format: "percent", sourceUrl: "https://www.spglobal.com/ratings/en/", integration: "licensed", staleAfterDays: 45 }),
   fred({ id: "credit-lending-standards", pillarId: "credit", indicator: "Lending standards", seriesId: "DRTSCILM", frequency: "quarterly", unit: "Net percent", format: "percent", staleAfterDays: 120 }),
-  mapped({ id: "credit-regional-banks", pillarId: "credit", indicator: "Regional banks", provider: "Licensed market-data provider", providerShort: "Market data", classification: "licensed-market-data", frequency: "daily", unit: "Relative return", sourceUrl: "https://www.nyse.com/market-data", integration: "licensed", staleAfterDays: 2, transformation: "Regional-bank index relative strength" }),
+  fmp({ id: "credit-regional-banks", pillarId: "credit", indicator: "Regional banks", seriesId: "KRE/SPY", frequency: "daily", unit: "20-session relative return", format: "percent", staleAfterDays: 3, featured: true, transformation: "KRE versus SPY over 20 common trading sessions" }),
   fred({ id: "credit-funding-stress", pillarId: "credit", indicator: "Funding stress", seriesId: "SOFR", frequency: "daily", unit: "Percent", format: "percent", staleAfterDays: 4, transformation: "SOFR level and dislocation versus policy corridor" }),
 
   mapped({ id: "earnings-forward-eps", pillarId: "earnings", indicator: "Forward EPS", provider: "Licensed consensus-estimates provider", providerShort: "Consensus", classification: "licensed-market-data", frequency: "weekly", unit: "Index earnings", sourceUrl: "https://insight.factset.com/earnings-insight", integration: "licensed", staleAfterDays: 10 }),
@@ -151,12 +219,12 @@ export const INDICATOR_SOURCE_REGISTRY: readonly IndicatorSourceDefinition[] = [
   mapped({ id: "earnings-equity-risk-premium", pillarId: "earnings", indicator: "Equity risk premium", provider: "Derived from consensus earnings and Treasury yields", providerShort: "Derived", classification: "licensed-market-data", frequency: "daily", unit: "Percentage points", format: "percent", sourceUrl: "https://pages.stern.nyu.edu/~adamodar/", integration: "licensed", staleAfterDays: 3, transformation: "Forward earnings yield less risk-free yield" }),
   mapped({ id: "earnings-fcf-yield", pillarId: "earnings", indicator: "FCF yield", provider: "Licensed fundamentals provider", providerShort: "Fundamentals", classification: "licensed-market-data", frequency: "daily", unit: "Percent", format: "percent", sourceUrl: "https://www.sec.gov/edgar/search/", integration: "licensed", staleAfterDays: 10 }),
 
-  mapped({ id: "breadth-equal-weight", pillarId: "breadth", indicator: "Equal weight", provider: "Licensed index and market-data provider", providerShort: "Market data", classification: "licensed-market-data", frequency: "daily", unit: "Relative return", sourceUrl: "https://www.spglobal.com/spdji/en/indices/equity/sp-500-equal-weight-index/", integration: "licensed", staleAfterDays: 2 }),
+  fmp({ id: "breadth-equal-weight", pillarId: "breadth", indicator: "Equal weight", seriesId: "RSP/SPY", frequency: "daily", unit: "20-session relative return", format: "percent", staleAfterDays: 3, featured: true, transformation: "RSP versus SPY over 20 common trading sessions" }),
   mapped({ id: "breadth-above-200d", pillarId: "breadth", indicator: "% above 200D", provider: "Licensed exchange breadth feed", providerShort: "Market data", classification: "licensed-market-data", frequency: "daily", unit: "Percent", format: "percent", sourceUrl: "https://www.nyse.com/market-data", integration: "licensed", staleAfterDays: 2 }),
   mapped({ id: "breadth-advance-decline", pillarId: "breadth", indicator: "Advance-decline", provider: "Licensed exchange breadth feed", providerShort: "Market data", classification: "licensed-market-data", frequency: "daily", unit: "Cumulative issues", sourceUrl: "https://www.nyse.com/market-data", integration: "licensed", staleAfterDays: 2 }),
   mapped({ id: "breadth-new-highs-lows", pillarId: "breadth", indicator: "New highs / lows", provider: "Licensed exchange breadth feed", providerShort: "Market data", classification: "licensed-market-data", frequency: "daily", unit: "Issue count", sourceUrl: "https://www.nyse.com/market-data", integration: "licensed", staleAfterDays: 2 }),
-  mapped({ id: "breadth-small-large", pillarId: "breadth", indicator: "Small vs large", provider: "Licensed index and market-data provider", providerShort: "Market data", classification: "licensed-market-data", frequency: "daily", unit: "Relative return", sourceUrl: "https://www.lseg.com/en/ftse-russell", integration: "licensed", staleAfterDays: 2 }),
-  mapped({ id: "breadth-cyclicals-defensives", pillarId: "breadth", indicator: "Cyclicals vs defensives", provider: "Licensed sector market-data provider", providerShort: "Market data", classification: "licensed-market-data", frequency: "daily", unit: "Relative return", sourceUrl: "https://www.spglobal.com/spdji/en/", integration: "licensed", staleAfterDays: 2 }),
+  fmp({ id: "breadth-small-large", pillarId: "breadth", indicator: "Small vs large", seriesId: "IWM/SPY", frequency: "daily", unit: "20-session relative return", format: "percent", staleAfterDays: 3, featured: true, transformation: "IWM versus SPY over 20 common trading sessions" }),
+  fmp({ id: "breadth-cyclicals-defensives", pillarId: "breadth", indicator: "Cyclicals vs defensives", seriesId: "XLI/XLP", frequency: "daily", unit: "20-session relative return", format: "percent", staleAfterDays: 3, featured: true, transformation: "XLI versus XLP over 20 common trading sessions" }),
 
   mapped({ id: "positioning-vix-curve", pillarId: "positioning", indicator: "VIX curve", provider: "Cboe Global Markets", providerShort: "Cboe", classification: "licensed-market-data", frequency: "daily", unit: "Index / spread", sourceUrl: "https://www.cboe.com/tradable_products/vix/", integration: "licensed", staleAfterDays: 2 }),
   mapped({ id: "positioning-put-call", pillarId: "positioning", indicator: "Put / call", provider: "Cboe Global Markets", providerShort: "Cboe", classification: "primary-public", frequency: "daily", unit: "Ratio", sourceUrl: "https://www.cboe.com/us/options/market_statistics/", staleAfterDays: 3 }),

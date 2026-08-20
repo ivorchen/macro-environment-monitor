@@ -1,4 +1,4 @@
-export type SourceAdapter = "fred" | "treasury" | "bls";
+export type SourceAdapter = "fred" | "treasury" | "bls" | "bea" | "census" | "fmp";
 
 export type SourceClassification =
   | "primary-public"
@@ -13,6 +13,7 @@ export type ReadingFormat =
   | "percent"
   | "index"
   | "usd-billions"
+  | "usd-dollars-to-billions"
   | "usd-millions-to-billions"
   | "usd-millions-to-trillions"
   | "signed-thousands"
@@ -69,9 +70,9 @@ export type IndicatorApiResponse = {
   readings: IndicatorReading[];
   cache: {
     backend: "redis" | "none";
-    hits: Array<"fred" | "bls" | "treasury">;
-    misses: Array<"fred" | "bls" | "treasury">;
-    bypassed: Array<"fred" | "bls" | "treasury">;
+    hits: SourceAdapter[];
+    misses: SourceAdapter[];
+    bypassed: SourceAdapter[];
   };
   summary: {
     fresh: number;

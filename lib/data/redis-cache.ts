@@ -2,11 +2,13 @@ import "server-only";
 
 import { createClient } from "redis";
 
-import type { IndicatorDataCache } from "./cache";
+import type { IndicatorDataCache, RequestGate } from "./cache";
 
 type IndicatorRedisClient = {
   get(key: string): Promise<string | null>;
   set(key: string, value: string, options: { EX: number }): Promise<unknown>;
+  incr(key: string): Promise<number>;
+  expire(key: string, seconds: number): Promise<number>;
 };
 
 const globalForRedis = globalThis as typeof globalThis & {
@@ -60,5 +62,28 @@ export function createRedisIndicatorCache(
         // Redis is an optimization; source reads remain the availability fallback.
       }
     },
+  };
+}
+
+export function createRedisDailyRequestGate(
+  namespace: string,
+  limit: number,
+  redisUrl = process.env.REDIS_URL,
+  keyPrefix = process.env.REDIS_KEY_PREFIX ?? "macro-monitor",
+): RequestGate | undefined {
+  if (!redisUrl) return undefined;
+
+  return async () => {
+    try {
+      const date = new Date().toISOString().slice(0, 10);
+      const key = `${keyPrefix}:request-budget:${namespace}:${date}`;
+      const client = await redisClient(redisUrl);
+      const used = await client.incr(key);
+      if (used === 1) await client.expire(key, 48 * 60 * 60);
+      return { allowed: used <= limit, used, limit };
+    } catch {
+      // Fail closed: an unavailable quota ledger must never cause unbounded provider calls.
+      return { allowed: false, used: limit, limit };
+    }
   };
 }

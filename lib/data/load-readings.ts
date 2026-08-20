@@ -1,12 +1,16 @@
+import { fetchBeaReadings } from "./adapters/bea";
 import { fetchBlsReadingsWithFredFallback } from "./adapters/bls-with-fred-fallback";
+import { fetchCensusReadings } from "./adapters/census";
+import { fetchFmpReadings } from "./adapters/fmp";
 import { fetchFredReadings } from "./adapters/fred";
-import { fetchTreasuryReading } from "./adapters/treasury";
+import { fetchTreasuryReadings } from "./adapters/treasury";
 import {
   PROVIDER_CACHE_TTL_SECONDS,
   loadCachedProvider,
   type CacheProvider,
   type CacheResultStatus,
   type IndicatorDataCache,
+  type RequestGate,
 } from "./cache";
 import { FEATURED_SOURCE_DEFINITIONS } from "./source-registry";
 import type { AdapterOptions, IndicatorApiResponse, IndicatorReading } from "./types";
@@ -15,15 +19,26 @@ export async function loadIndicatorReadings(
   options: AdapterOptions & {
     fredApiKey?: string;
     blsApiKey?: string;
+    beaApiKey?: string;
+    censusApiKey?: string;
+    fmpApiKey?: string;
+    fmpRequestGate?: RequestGate;
     cache?: IndicatorDataCache;
   } = {},
 ): Promise<IndicatorApiResponse> {
   const now = options.now ?? new Date();
   const fredSources = FEATURED_SOURCE_DEFINITIONS.filter((source) => source.adapter === "fred");
   const blsSources = FEATURED_SOURCE_DEFINITIONS.filter((source) => source.adapter === "bls");
-  const treasurySource = FEATURED_SOURCE_DEFINITIONS.find((source) => source.adapter === "treasury");
+  const beaSources = FEATURED_SOURCE_DEFINITIONS.filter((source) => source.adapter === "bea");
+  const censusSources = FEATURED_SOURCE_DEFINITIONS.filter((source) => source.adapter === "census");
+  const treasurySources = FEATURED_SOURCE_DEFINITIONS.filter((source) => source.adapter === "treasury");
+  const fmpSources = FEATURED_SOURCE_DEFINITIONS.filter((source) => source.adapter === "fmp");
+  const skippedProvider = Promise.resolve({
+    value: [] as IndicatorReading[],
+    status: "bypass" as const,
+  });
 
-  const [fredResult, blsResult, treasuryResult] = await Promise.all([
+  const [fredResult, blsResult, beaResult, censusResult, treasuryResult, fmpResult] = await Promise.all([
     loadCachedProvider({
       cache: options.fredApiKey ? options.cache : undefined,
       cacheKey: "readings:v1:fred",
@@ -43,22 +58,68 @@ export async function loadIndicatorReadings(
       }),
       shouldCache: (readings) => readings.every((reading) => reading.freshness !== "unavailable"),
     }),
+    options.beaApiKey
+      ? loadCachedProvider({
+          cache: options.cache,
+          cacheKey: "readings:v2:bea",
+          ttlSeconds: PROVIDER_CACHE_TTL_SECONDS.bea,
+          loader: () => fetchBeaReadings(beaSources, options.beaApiKey, options),
+          shouldCache: (readings) =>
+            readings.every((reading) => reading.freshness !== "unavailable"),
+        })
+      : skippedProvider,
+    options.censusApiKey
+      ? loadCachedProvider({
+          cache: options.cache,
+          cacheKey: "readings:v2:census",
+          ttlSeconds: PROVIDER_CACHE_TTL_SECONDS.census,
+          loader: () => fetchCensusReadings(censusSources, options.censusApiKey, options),
+          shouldCache: (readings) =>
+            readings.every((reading) => reading.freshness !== "unavailable"),
+        })
+      : skippedProvider,
     loadCachedProvider({
       cache: options.cache,
-      cacheKey: "readings:v1:treasury",
+      cacheKey: "readings:v2:treasury",
       ttlSeconds: PROVIDER_CACHE_TTL_SECONDS.treasury,
-      loader: () => treasurySource ? fetchTreasuryReading(treasurySource, options) : Promise.resolve(null),
-      shouldCache: (reading) => reading !== null && reading.freshness !== "unavailable",
+      loader: () => fetchTreasuryReadings(treasurySources, options),
+      shouldCache: (readings) => readings.every((reading) => reading.freshness !== "unavailable"),
     }),
+    options.fmpApiKey
+      ? loadCachedProvider({
+          cache: options.cache,
+          cacheKey: "readings:v2:fmp",
+          ttlSeconds: PROVIDER_CACHE_TTL_SECONDS.fmp,
+          loader: () =>
+            fetchFmpReadings(fmpSources, options.fmpApiKey, {
+              ...options,
+              requestGate: options.fmpRequestGate,
+            }),
+          // FMP's free-plan entitlement failures are cached to avoid repeatedly spending quota.
+          shouldCache: () => true,
+        })
+      : skippedProvider,
   ]);
 
   const providerStatuses: Array<{ provider: CacheProvider; status: CacheResultStatus }> = [
     { provider: "fred", status: fredResult.status },
     { provider: "bls", status: blsResult.status },
+    ...(options.beaApiKey ? [{ provider: "bea" as const, status: beaResult.status }] : []),
+    ...(options.censusApiKey
+      ? [{ provider: "census" as const, status: censusResult.status }]
+      : []),
     { provider: "treasury", status: treasuryResult.status },
+    ...(options.fmpApiKey ? [{ provider: "fmp" as const, status: fmpResult.status }] : []),
   ];
 
-  const readings = [...fredResult.value, ...blsResult.value, treasuryResult.value]
+  const readings = [
+    ...fredResult.value,
+    ...blsResult.value,
+    ...beaResult.value,
+    ...censusResult.value,
+    ...treasuryResult.value,
+    ...fmpResult.value,
+  ]
     .filter((reading): reading is IndicatorReading => reading !== null)
     .sort((a, b) => {
       const aSource = FEATURED_SOURCE_DEFINITIONS.findIndex((source) => source.id === a.id);

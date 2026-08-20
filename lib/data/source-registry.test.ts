@@ -9,7 +9,7 @@ describe("indicator source registry", () => {
       pillar.indicators.map((indicator) => ({ pillarId: pillar.id, indicator })),
     );
 
-    expect(INDICATOR_SOURCE_REGISTRY).toHaveLength(displayedIndicators.length);
+    expect(INDICATOR_SOURCE_REGISTRY.length).toBeGreaterThanOrEqual(displayedIndicators.length);
     for (const displayed of displayedIndicators) {
       expect(sourceForIndicator(displayed.pillarId, displayed.indicator)).toBeDefined();
     }
@@ -30,7 +30,24 @@ describe("indicator source registry", () => {
     );
 
     expect(licensed.length).toBeGreaterThan(0);
-    expect(licensed.every((source) => source.integration === "licensed")).toBe(true);
-    expect(licensed.every((source) => source.adapter === null)).toBe(true);
+    expect(
+      licensed.every(
+        (source) =>
+          (source.integration === "licensed" && source.adapter === null) ||
+          (source.integration === "credential-required" && source.adapter === "fmp"),
+      ),
+    ).toBe(true);
+    expect(licensed.some((source) => source.adapter === "fmp")).toBe(true);
+  });
+
+  it("activates every provider required to close Phase 3", () => {
+    expect(INDICATOR_SOURCE_REGISTRY.some((source) => source.adapter === "bea")).toBe(true);
+    expect(INDICATOR_SOURCE_REGISTRY.some((source) => source.adapter === "census")).toBe(true);
+    expect(
+      INDICATOR_SOURCE_REGISTRY.some(
+        (source) => source.id === "liquidity-treasury-issuance" && source.adapter === "treasury",
+      ),
+    ).toBe(true);
+    expect(INDICATOR_SOURCE_REGISTRY.filter((source) => source.adapter === "fmp")).toHaveLength(4);
   });
 });

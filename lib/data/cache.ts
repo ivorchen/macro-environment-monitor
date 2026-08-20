@@ -1,6 +1,16 @@
+import type { SourceAdapter } from "./types";
+
 export type CacheBackend = "redis";
-export type CacheProvider = "fred" | "bls" | "treasury";
+export type CacheProvider = SourceAdapter;
 export type CacheResultStatus = "bypass" | "hit" | "miss";
+
+export type RequestBudgetResult = {
+  allowed: boolean;
+  used: number;
+  limit: number;
+};
+
+export type RequestGate = () => Promise<RequestBudgetResult>;
 
 export type IndicatorDataCache = {
   backend: CacheBackend;
@@ -19,6 +29,9 @@ export const PROVIDER_CACHE_TTL_SECONDS: Record<CacheProvider, number> = {
   fred: 60 * 60,
   treasury: 60 * 60,
   bls: 12 * 60 * 60,
+  bea: 12 * 60 * 60,
+  census: 12 * 60 * 60,
+  fmp: 24 * 60 * 60,
 };
 
 export async function loadCachedProvider<T>(options: {
