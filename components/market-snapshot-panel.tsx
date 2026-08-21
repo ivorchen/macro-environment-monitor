@@ -16,7 +16,7 @@ function formatObservation(value: string | null) {
     day: "numeric",
     hour: value.length === 10 ? undefined : "numeric",
     minute: value.length === 10 ? undefined : "2-digit",
-    timeZone: "America/New_York",
+    timeZone: value.length === 10 ? "UTC" : "America/New_York",
     timeZoneName: value.length === 10 ? undefined : "short",
   }).format(date);
 }
@@ -90,7 +90,7 @@ export function MarketSnapshotPanel() {
       )}
 
       {payload && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {payload.markets.map((market) => (
             <Card key={market.id} className="border-[#d9ddd7] bg-[#fbfaf6] shadow-none">
               <CardContent className="p-4">
@@ -131,8 +131,9 @@ export function MarketSnapshotPanel() {
       )}
 
       <p className="mt-2 text-[9px] leading-4 text-[#87928d]">
-        FMP Basic quotes are quota-protected and cached in Redis. FRED observations are daily closes.
-        RSP requires an FMP entitlement not included with the configured Basic plan.
+        FMP Basic supplies quota-protected SPX, VIX, gold, and Bitcoin quotes. FRED and Nasdaq
+        observations are daily closes; Nasdaq supplies RSP and JNK without consuming the FMP
+        allowance.
       </p>
     </section>
   );

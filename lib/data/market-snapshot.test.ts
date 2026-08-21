@@ -24,11 +24,29 @@ describe("market snapshot", () => {
       const url = new URL(String(input));
       if (url.hostname === "financialmodelingprep.com") {
         const symbol = url.searchParams.get("symbol");
-        return jsonResponse([
-          symbol === "^GSPC"
-            ? { price: 7708.03, previousClose: 7691.76, timestamp: 1787169599 }
-            : { price: 14.89, previousClose: 15.84, timestamp: 1787170381 },
-        ]);
+        const quotes: Record<string, { price: number; previousClose: number }> = {
+          "^GSPC": { price: 7708.03, previousClose: 7691.76 },
+          "^VIX": { price: 14.89, previousClose: 15.84 },
+          GCUSD: { price: 2525.4, previousClose: 2510.2 },
+          BTCUSD: { price: 62150.25, previousClose: 60800.5 },
+        };
+        return jsonResponse([{ ...quotes[symbol ?? ""], timestamp: 1787170381 }]);
+      }
+      if (url.hostname === "api.nasdaq.com") {
+        const symbol = url.pathname.split("/").at(-2);
+        const [latest, previous] =
+          symbol === "JNK" ? [95.77, 95.55] : [190.5, 189.25];
+        return jsonResponse({
+          data: {
+            tradesTable: {
+              rows: [
+                { date: "08/18/2026", close: String(latest) },
+                { date: "08/17/2026", close: String(previous) },
+              ],
+            },
+          },
+          status: { rCode: 200 },
+        });
       }
       const [latest, previous] = fredValues[url.searchParams.get("series_id") ?? ""];
       return jsonResponse({
@@ -61,18 +79,33 @@ describe("market snapshot", () => {
       "−3 bp",
     );
     expect(response.markets.find((market) => market.id === "rsp")).toMatchObject({
-      value: null,
-      status: "unavailable",
+      value: 190.5,
+      provider: "Nasdaq",
+      status: "fresh",
     });
-    expect(requestGate).toHaveBeenCalledTimes(2);
+    expect(response.markets.find((market) => market.id === "gold")).toMatchObject({
+      displayValue: "$2,525",
+      provider: "FMP",
+      status: "fresh",
+    });
+    expect(response.markets.find((market) => market.id === "jnk")).toMatchObject({
+      displayValue: "$95.77",
+      provider: "Nasdaq",
+      status: "fresh",
+    });
+    expect(response.markets.find((market) => market.id === "btc")).toMatchObject({
+      displayValue: "$62,150",
+      provider: "FMP",
+      status: "fresh",
+    });
+    expect(requestGate).toHaveBeenCalledTimes(4);
     expect(
       fetchMock.mock.calls.filter(([input]) =>
         String(input).includes("financialmodelingprep.com"),
       ),
-    ).toHaveLength(2);
-    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("symbol=RSP"))).toBe(
-      false,
-    );
+    ).toHaveLength(4);
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/quote/RSP/"))).toBe(true);
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/quote/JNK/"))).toBe(true);
   });
 
   it("uses a shorter cache window during U.S. market hours", () => {

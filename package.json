@@ -9,6 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "insight:publish": "node --env-file=.env.local scripts/publish-market-insight.mjs",
     "lint": "eslint .",
     "test": "vitest run --exclude \"work/**\"",
     "check": "pnpm test && pnpm lint && pnpm build"

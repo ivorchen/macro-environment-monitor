@@ -1,8 +1,8 @@
 import { fetchBeaReadings } from "./adapters/bea";
 import { fetchBlsReadingsWithFredFallback } from "./adapters/bls-with-fred-fallback";
 import { fetchCensusReadings } from "./adapters/census";
-import { fetchFmpReadings } from "./adapters/fmp";
 import { fetchFredReadings } from "./adapters/fred";
+import { fetchNasdaqReadings } from "./adapters/nasdaq";
 import { fetchTreasuryReadings } from "./adapters/treasury";
 import {
   PROVIDER_CACHE_TTL_SECONDS,
@@ -10,7 +10,6 @@ import {
   type CacheProvider,
   type CacheResultStatus,
   type IndicatorDataCache,
-  type RequestGate,
 } from "./cache";
 import { FEATURED_SOURCE_DEFINITIONS } from "./source-registry";
 import type { AdapterOptions, IndicatorApiResponse, IndicatorReading } from "./types";
@@ -21,8 +20,6 @@ export async function loadIndicatorReadings(
     blsApiKey?: string;
     beaApiKey?: string;
     censusApiKey?: string;
-    fmpApiKey?: string;
-    fmpRequestGate?: RequestGate;
     cache?: IndicatorDataCache;
   } = {},
 ): Promise<IndicatorApiResponse> {
@@ -32,13 +29,13 @@ export async function loadIndicatorReadings(
   const beaSources = FEATURED_SOURCE_DEFINITIONS.filter((source) => source.adapter === "bea");
   const censusSources = FEATURED_SOURCE_DEFINITIONS.filter((source) => source.adapter === "census");
   const treasurySources = FEATURED_SOURCE_DEFINITIONS.filter((source) => source.adapter === "treasury");
-  const fmpSources = FEATURED_SOURCE_DEFINITIONS.filter((source) => source.adapter === "fmp");
+  const nasdaqSources = FEATURED_SOURCE_DEFINITIONS.filter((source) => source.adapter === "nasdaq");
   const skippedProvider = Promise.resolve({
     value: [] as IndicatorReading[],
     status: "bypass" as const,
   });
 
-  const [fredResult, blsResult, beaResult, censusResult, treasuryResult, fmpResult] = await Promise.all([
+  const [fredResult, blsResult, beaResult, censusResult, treasuryResult, nasdaqResult] = await Promise.all([
     loadCachedProvider({
       cache: options.fredApiKey ? options.cache : undefined,
       cacheKey: "readings:v1:fred",
@@ -85,20 +82,14 @@ export async function loadIndicatorReadings(
       loader: () => fetchTreasuryReadings(treasurySources, options),
       shouldCache: (readings) => readings.every((reading) => reading.freshness !== "unavailable"),
     }),
-    options.fmpApiKey
-      ? loadCachedProvider({
-          cache: options.cache,
-          cacheKey: "readings:v2:fmp",
-          ttlSeconds: PROVIDER_CACHE_TTL_SECONDS.fmp,
-          loader: () =>
-            fetchFmpReadings(fmpSources, options.fmpApiKey, {
-              ...options,
-              requestGate: options.fmpRequestGate,
-            }),
-          // FMP's free-plan entitlement failures are cached to avoid repeatedly spending quota.
-          shouldCache: () => true,
-        })
-      : skippedProvider,
+    loadCachedProvider({
+      cache: options.cache,
+      cacheKey: "readings:v3:nasdaq",
+      ttlSeconds: PROVIDER_CACHE_TTL_SECONDS.nasdaq,
+      loader: () => fetchNasdaqReadings(nasdaqSources, options),
+      shouldCache: (readings) =>
+        readings.every((reading) => reading.freshness !== "unavailable"),
+    }),
   ]);
 
   const providerStatuses: Array<{ provider: CacheProvider; status: CacheResultStatus }> = [
@@ -109,7 +100,7 @@ export async function loadIndicatorReadings(
       ? [{ provider: "census" as const, status: censusResult.status }]
       : []),
     { provider: "treasury", status: treasuryResult.status },
-    ...(options.fmpApiKey ? [{ provider: "fmp" as const, status: fmpResult.status }] : []),
+    { provider: "nasdaq", status: nasdaqResult.status },
   ];
 
   const readings = [
@@ -118,7 +109,7 @@ export async function loadIndicatorReadings(
     ...beaResult.value,
     ...censusResult.value,
     ...treasuryResult.value,
-    ...fmpResult.value,
+    ...nasdaqResult.value,
   ]
     .filter((reading): reading is IndicatorReading => reading !== null)
     .sort((a, b) => {

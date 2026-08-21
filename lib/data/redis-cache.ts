@@ -2,11 +2,15 @@ import "server-only";
 
 import { createClient } from "redis";
 
-import type { IndicatorDataCache, RequestGate } from "./cache";
+import type { DailyInsightStore, IndicatorDataCache, RequestGate } from "./cache";
 
 type IndicatorRedisClient = {
   get(key: string): Promise<string | null>;
-  set(key: string, value: string, options: { EX: number }): Promise<unknown>;
+  set(
+    key: string,
+    value: string,
+    options: { EX: number; NX?: boolean },
+  ): Promise<string | null>;
   incr(key: string): Promise<number>;
   expire(key: string, seconds: number): Promise<number>;
 };
@@ -61,6 +65,27 @@ export function createRedisIndicatorCache(
       } catch {
         // Redis is an optimization; source reads remain the availability fallback.
       }
+    },
+  };
+}
+
+export function createRedisDailyInsightStore(
+  redisUrl = process.env.REDIS_URL,
+  keyPrefix = process.env.REDIS_KEY_PREFIX ?? "macro-monitor",
+): DailyInsightStore | undefined {
+  if (!redisUrl) return undefined;
+
+  const key = (value: string) => `${keyPrefix}:${value}`;
+  return {
+    backend: "redis",
+    async get<T>(cacheKey: string) {
+      const value = await (await redisClient(redisUrl)).get(key(cacheKey));
+      return value ? JSON.parse(value) as T : null;
+    },
+    async set<T>(cacheKey: string, value: T, ttlSeconds: number) {
+      await (await redisClient(redisUrl)).set(key(cacheKey), JSON.stringify(value), {
+        EX: ttlSeconds,
+      });
     },
   };
 }

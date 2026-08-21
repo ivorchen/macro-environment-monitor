@@ -84,19 +84,19 @@ function census(input: PublicSourceInput): IndicatorSourceDefinition {
   };
 }
 
-function fmp(input: PublicSourceInput): IndicatorSourceDefinition {
+function nasdaq(input: PublicSourceInput): IndicatorSourceDefinition {
   return {
     ...input,
-    provider: "Financial Modeling Prep",
-    providerShort: "FMP",
-    classification: "licensed-market-data",
+    provider: "Nasdaq public market data",
+    providerShort: "Nasdaq",
+    classification: "aggregated-public",
     format: input.format ?? "percent",
     calculation: input.calculation ?? "latest",
     transformation: input.transformation ?? "20-session relative return",
-    revisionPolicy: "End-of-day prices can be corrected by the vendor. Dated reviews retain the retrieved observations and calculation timestamp.",
-    sourceUrl: "https://site.financialmodelingprep.com/developer/docs/stable",
-    adapter: "fmp",
-    integration: "credential-required",
+    revisionPolicy: "Nasdaq historical prices can be corrected. Dated reviews retain the retrieved observations and calculation timestamp.",
+    sourceUrl: "https://www.nasdaq.com/market-activity/etf",
+    adapter: "nasdaq",
+    integration: "active",
   };
 }
 
@@ -209,7 +209,7 @@ export const INDICATOR_SOURCE_REGISTRY: readonly IndicatorSourceDefinition[] = [
   fred({ id: "credit-ig-spreads", pillarId: "credit", indicator: "IG spreads", seriesId: "BAMLC0A0CM", frequency: "daily", unit: "Percent", format: "percent", staleAfterDays: 4 }),
   mapped({ id: "credit-default-outlook", pillarId: "credit", indicator: "Default outlook", provider: "Moody's / S&P Global", providerShort: "Credit research", classification: "licensed-market-data", frequency: "monthly", unit: "Percent", format: "percent", sourceUrl: "https://www.spglobal.com/ratings/en/", integration: "licensed", staleAfterDays: 45 }),
   fred({ id: "credit-lending-standards", pillarId: "credit", indicator: "Lending standards", seriesId: "DRTSCILM", frequency: "quarterly", unit: "Net percent", format: "percent", staleAfterDays: 120 }),
-  fmp({ id: "credit-regional-banks", pillarId: "credit", indicator: "Regional banks", seriesId: "KRE/SPY", frequency: "daily", unit: "20-session relative return", format: "percent", staleAfterDays: 3, featured: true, transformation: "KRE versus SPY over 20 common trading sessions" }),
+  nasdaq({ id: "credit-regional-banks", pillarId: "credit", indicator: "Regional banks", seriesId: "KRE/SPY", frequency: "daily", unit: "20-session relative return", format: "percent", staleAfterDays: 3, featured: true, transformation: "KRE versus SPY over 20 common trading sessions" }),
   fred({ id: "credit-funding-stress", pillarId: "credit", indicator: "Funding stress", seriesId: "SOFR", frequency: "daily", unit: "Percent", format: "percent", staleAfterDays: 4, transformation: "SOFR level and dislocation versus policy corridor" }),
 
   mapped({ id: "earnings-forward-eps", pillarId: "earnings", indicator: "Forward EPS", provider: "Licensed consensus-estimates provider", providerShort: "Consensus", classification: "licensed-market-data", frequency: "weekly", unit: "Index earnings", sourceUrl: "https://insight.factset.com/earnings-insight", integration: "licensed", staleAfterDays: 10 }),
@@ -219,12 +219,12 @@ export const INDICATOR_SOURCE_REGISTRY: readonly IndicatorSourceDefinition[] = [
   mapped({ id: "earnings-equity-risk-premium", pillarId: "earnings", indicator: "Equity risk premium", provider: "Derived from consensus earnings and Treasury yields", providerShort: "Derived", classification: "licensed-market-data", frequency: "daily", unit: "Percentage points", format: "percent", sourceUrl: "https://pages.stern.nyu.edu/~adamodar/", integration: "licensed", staleAfterDays: 3, transformation: "Forward earnings yield less risk-free yield" }),
   mapped({ id: "earnings-fcf-yield", pillarId: "earnings", indicator: "FCF yield", provider: "Licensed fundamentals provider", providerShort: "Fundamentals", classification: "licensed-market-data", frequency: "daily", unit: "Percent", format: "percent", sourceUrl: "https://www.sec.gov/edgar/search/", integration: "licensed", staleAfterDays: 10 }),
 
-  fmp({ id: "breadth-equal-weight", pillarId: "breadth", indicator: "Equal weight", seriesId: "RSP/SPY", frequency: "daily", unit: "20-session relative return", format: "percent", staleAfterDays: 3, featured: true, transformation: "RSP versus SPY over 20 common trading sessions" }),
+  nasdaq({ id: "breadth-equal-weight", pillarId: "breadth", indicator: "Equal weight", seriesId: "RSP/SPY", frequency: "daily", unit: "20-session relative return", format: "percent", staleAfterDays: 3, featured: true, transformation: "RSP versus SPY over 20 common trading sessions" }),
   mapped({ id: "breadth-above-200d", pillarId: "breadth", indicator: "% above 200D", provider: "Licensed exchange breadth feed", providerShort: "Market data", classification: "licensed-market-data", frequency: "daily", unit: "Percent", format: "percent", sourceUrl: "https://www.nyse.com/market-data", integration: "licensed", staleAfterDays: 2 }),
   mapped({ id: "breadth-advance-decline", pillarId: "breadth", indicator: "Advance-decline", provider: "Licensed exchange breadth feed", providerShort: "Market data", classification: "licensed-market-data", frequency: "daily", unit: "Cumulative issues", sourceUrl: "https://www.nyse.com/market-data", integration: "licensed", staleAfterDays: 2 }),
   mapped({ id: "breadth-new-highs-lows", pillarId: "breadth", indicator: "New highs / lows", provider: "Licensed exchange breadth feed", providerShort: "Market data", classification: "licensed-market-data", frequency: "daily", unit: "Issue count", sourceUrl: "https://www.nyse.com/market-data", integration: "licensed", staleAfterDays: 2 }),
-  fmp({ id: "breadth-small-large", pillarId: "breadth", indicator: "Small vs large", seriesId: "IWM/SPY", frequency: "daily", unit: "20-session relative return", format: "percent", staleAfterDays: 3, featured: true, transformation: "IWM versus SPY over 20 common trading sessions" }),
-  fmp({ id: "breadth-cyclicals-defensives", pillarId: "breadth", indicator: "Cyclicals vs defensives", seriesId: "XLI/XLP", frequency: "daily", unit: "20-session relative return", format: "percent", staleAfterDays: 3, featured: true, transformation: "XLI versus XLP over 20 common trading sessions" }),
+  nasdaq({ id: "breadth-small-large", pillarId: "breadth", indicator: "Small vs large", seriesId: "IWM/SPY", frequency: "daily", unit: "20-session relative return", format: "percent", staleAfterDays: 3, featured: true, transformation: "IWM versus SPY over 20 common trading sessions" }),
+  nasdaq({ id: "breadth-cyclicals-defensives", pillarId: "breadth", indicator: "Cyclicals vs defensives", seriesId: "XLI/XLP", frequency: "daily", unit: "20-session relative return", format: "percent", staleAfterDays: 3, featured: true, transformation: "XLI versus XLP over 20 common trading sessions" }),
 
   mapped({ id: "positioning-vix-curve", pillarId: "positioning", indicator: "VIX curve", provider: "Cboe Global Markets", providerShort: "Cboe", classification: "licensed-market-data", frequency: "daily", unit: "Index / spread", sourceUrl: "https://www.cboe.com/tradable_products/vix/", integration: "licensed", staleAfterDays: 2 }),
   mapped({ id: "positioning-put-call", pillarId: "positioning", indicator: "Put / call", provider: "Cboe Global Markets", providerShort: "Cboe", classification: "primary-public", frequency: "daily", unit: "Ratio", sourceUrl: "https://www.cboe.com/us/options/market_statistics/", staleAfterDays: 3 }),

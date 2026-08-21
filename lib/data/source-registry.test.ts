@@ -34,10 +34,9 @@ describe("indicator source registry", () => {
       licensed.every(
         (source) =>
           (source.integration === "licensed" && source.adapter === null) ||
-          (source.integration === "credential-required" && source.adapter === "fmp"),
+          source.integration === "licensed" && source.adapter === null,
       ),
     ).toBe(true);
-    expect(licensed.some((source) => source.adapter === "fmp")).toBe(true);
   });
 
   it("activates every provider required to close Phase 3", () => {
@@ -48,6 +47,6 @@ describe("indicator source registry", () => {
         (source) => source.id === "liquidity-treasury-issuance" && source.adapter === "treasury",
       ),
     ).toBe(true);
-    expect(INDICATOR_SOURCE_REGISTRY.filter((source) => source.adapter === "fmp")).toHaveLength(4);
+    expect(INDICATOR_SOURCE_REGISTRY.filter((source) => source.adapter === "nasdaq")).toHaveLength(4);
   });
 });

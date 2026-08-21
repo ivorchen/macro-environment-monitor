@@ -43,7 +43,6 @@ function formatDate(value: string | null) {
 function credentialLabel(reading: IndicatorReading) {
   if (reading.providerShort === "BEA") return "BEA_API_KEY";
   if (reading.providerShort === "Census") return "CENSUS_API_KEY";
-  if (reading.providerShort === "FMP") return "FMP_API_KEY";
   return "FRED_API_KEY";
 }
 
@@ -181,7 +180,7 @@ export function SourceStatusPanel() {
       )}
 
       <p className="mt-3 text-[10px] leading-4 text-[#74817b]">
-        Observation dates and retrieval freshness are shown separately. Optional BEA, Census, and FMP indicators appear only when their server-side API keys are configured; a missing FRED key remains explicit. Manual scoring remains independent of source availability.
+        Observation dates and retrieval freshness are shown separately. Optional BEA and Census indicators appear only when their server-side API keys are configured; a missing FRED key remains explicit. Nasdaq daily ETF prices supply the relative-strength indicators without consuming the FMP allowance. Manual scoring remains independent of source availability.
         {payload && (
           <span className="ml-1">
             {payload.cache.backend === "redis"
@@ -194,7 +193,7 @@ export function SourceStatusPanel() {
         This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis.
       </p>
       <p className="mt-1 text-[9px] leading-4 text-[#87928d]">
-        FMP readings require an account plan licensed for the operator&apos;s intended use and display audience.
+        Nasdaq ETF readings use the provider&apos;s public market-activity data and are cached for six hours.
       </p>
     </section>
   );

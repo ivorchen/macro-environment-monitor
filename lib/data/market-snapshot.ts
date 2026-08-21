@@ -4,9 +4,19 @@ import {
   type IndicatorDataCache,
   type RequestGate,
 } from "./cache";
+import { fetchNasdaqEtfHistory } from "./adapters/nasdaq";
 
 export type MarketSnapshotItem = {
-  id: "spx" | "ndx" | "rsp" | "real-yield" | "hy-oas" | "vix";
+  id:
+    | "spx"
+    | "ndx"
+    | "rsp"
+    | "real-yield"
+    | "hy-oas"
+    | "vix"
+    | "gold"
+    | "jnk"
+    | "btc";
   symbol: string;
   name: string;
   displayValue: string;
@@ -158,6 +168,33 @@ async function fetchFredPoint(
   }
 }
 
+async function fetchNasdaqPoint(
+  symbol: string,
+  fetcher: typeof fetch,
+  now: Date,
+): Promise<PointResult> {
+  try {
+    const rows = await fetchNasdaqEtfHistory(symbol, { fetcher, now });
+    const latest = rows[0];
+    const previous = rows[1];
+    if (!latest || !previous) {
+      return { point: null, error: `Nasdaq returned insufficient observations for ${symbol}.` };
+    }
+    return {
+      point: {
+        value: latest.close,
+        previous: previous.close,
+        observationAt: latest.date,
+      },
+    };
+  } catch (error) {
+    return {
+      point: null,
+      error: error instanceof Error ? error.message : "Nasdaq market-data request failed.",
+    };
+  }
+}
+
 function isStale(observationAt: string, now: Date) {
   const observation = new Date(
     observationAt.length === 10 ? `${observationAt}T00:00:00Z` : observationAt,
@@ -179,7 +216,7 @@ function marketItem(options: {
   provider: string;
   sourceUrl: string;
   now: Date;
-  format: "index" | "percent";
+  format: "index" | "percent" | "currency";
   move: "percent" | "basis-points";
   downIsGood?: boolean;
 }): MarketSnapshotItem {
@@ -205,8 +242,9 @@ function marketItem(options: {
     options.move === "basis-points"
       ? (point.value - point.previous) * 100
       : ((point.value / point.previous) - 1) * 100;
-  const valueDigits = options.format === "percent" ? 2 : point.value >= 1_000 ? 0 : 2;
-  const displayValue = `${point.value.toLocaleString("en-US", {
+  const valueDigits =
+    options.format === "percent" ? 2 : point.value >= 1_000 ? 0 : 2;
+  const displayValue = `${options.format === "currency" ? "$" : ""}${point.value.toLocaleString("en-US", {
     minimumFractionDigits: options.format === "percent" ? 2 : 0,
     maximumFractionDigits: valueDigits,
   })}${options.format === "percent" ? "%" : ""}`;
@@ -262,13 +300,29 @@ export async function loadMarketSnapshot(options: {
   const fetcher = options.fetcher ?? fetch;
   const result = await loadCachedProvider({
     cache: options.cache,
-    cacheKey: "market-snapshot:v1",
+    cacheKey: "market-snapshot:v3",
     ttlSeconds: marketSnapshotCacheTtlSeconds(now),
     loader: async () => {
-      const [fmpSpx, fmpVix, fredSpx, fredNdx, fredRealYield, fredHighYield, fredVix] =
+      const [
+        fmpSpx,
+        fmpVix,
+        fmpGold,
+        fmpBtc,
+        nasdaqRsp,
+        nasdaqJnk,
+        fredSpx,
+        fredNdx,
+        fredRealYield,
+        fredHighYield,
+        fredVix,
+      ] =
         await Promise.all([
           fetchFmpQuote("^GSPC", options.fmpApiKey, options.requestGate, fetcher),
           fetchFmpQuote("^VIX", options.fmpApiKey, options.requestGate, fetcher),
+          fetchFmpQuote("GCUSD", options.fmpApiKey, options.requestGate, fetcher),
+          fetchFmpQuote("BTCUSD", options.fmpApiKey, options.requestGate, fetcher),
+          fetchNasdaqPoint("RSP", fetcher, now),
+          fetchNasdaqPoint("JNK", fetcher, now),
           fetchFredPoint(FRED_SERIES.spx, options.fredApiKey, fetcher),
           fetchFredPoint(FRED_SERIES.ndx, options.fredApiKey, fetcher),
           fetchFredPoint(FRED_SERIES.realYield, options.fredApiKey, fetcher),
@@ -283,10 +337,13 @@ export async function loadMarketSnapshot(options: {
         markets: [
           marketItem({ id: "spx", symbol: "SPX", name: "S&P 500", result: spx, provider: fmpSpx.point ? "FMP" : "FRED", sourceUrl: fmpSpx.point ? "https://financialmodelingprep.com/" : "https://fred.stlouisfed.org/series/SP500", now, format: "index", move: "percent" }),
           marketItem({ id: "ndx", symbol: "NDX", name: "Nasdaq 100", result: fredNdx, provider: "FRED", sourceUrl: "https://fred.stlouisfed.org/series/NASDAQ100", now, format: "index", move: "percent" }),
-          marketItem({ id: "rsp", symbol: "RSP", name: "Equal weight", result: { point: null, error: "RSP is not available with the configured FMP Basic entitlement." }, provider: "FMP Basic", sourceUrl: "https://site.financialmodelingprep.com/pricing-plans", now, format: "index", move: "percent" }),
+          marketItem({ id: "rsp", symbol: "RSP", name: "Equal weight", result: nasdaqRsp, provider: "Nasdaq", sourceUrl: "https://www.nasdaq.com/market-activity/etf/rsp/historical", now, format: "index", move: "percent" }),
           marketItem({ id: "real-yield", symbol: "DFII10", name: "10Y real yield", result: fredRealYield, provider: "FRED", sourceUrl: "https://fred.stlouisfed.org/series/DFII10", now, format: "percent", move: "basis-points", downIsGood: true }),
           marketItem({ id: "hy-oas", symbol: "HY OAS", name: "High yield", result: fredHighYield, provider: "FRED", sourceUrl: "https://fred.stlouisfed.org/series/BAMLH0A0HYM2", now, format: "percent", move: "basis-points", downIsGood: true }),
           marketItem({ id: "vix", symbol: "VIX", name: "Volatility", result: vix, provider: fmpVix.point ? "FMP" : "FRED", sourceUrl: fmpVix.point ? "https://financialmodelingprep.com/" : "https://fred.stlouisfed.org/series/VIXCLS", now, format: "index", move: "percent", downIsGood: true }),
+          marketItem({ id: "gold", symbol: "GCUSD", name: "Gold", result: fmpGold, provider: "FMP", sourceUrl: "https://site.financialmodelingprep.com/developer/docs/stable/commodities-quote", now, format: "currency", move: "percent" }),
+          marketItem({ id: "jnk", symbol: "JNK", name: "High-yield ETF", result: nasdaqJnk, provider: "Nasdaq", sourceUrl: "https://www.nasdaq.com/market-activity/etf/jnk/historical", now, format: "currency", move: "percent" }),
+          marketItem({ id: "btc", symbol: "BTC", name: "Bitcoin", result: fmpBtc, provider: "FMP", sourceUrl: "https://site.financialmodelingprep.com/developer/docs/stable/cryptocurrency-quote", now, format: "currency", move: "percent" }),
         ],
       };
     },

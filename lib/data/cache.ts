@@ -18,6 +18,8 @@ export type IndicatorDataCache = {
   set<T>(key: string, value: T, ttlSeconds: number): Promise<void>;
 };
 
+export type DailyInsightStore = IndicatorDataCache;
+
 export type CacheTelemetry = {
   backend: CacheBackend | "none";
   hits: CacheProvider[];
@@ -31,7 +33,7 @@ export const PROVIDER_CACHE_TTL_SECONDS: Record<CacheProvider, number> = {
   bls: 12 * 60 * 60,
   bea: 12 * 60 * 60,
   census: 12 * 60 * 60,
-  fmp: 24 * 60 * 60,
+  nasdaq: 6 * 60 * 60,
 };
 
 export async function loadCachedProvider<T>(options: {

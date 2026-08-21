@@ -14,11 +14,14 @@ The canonical machine-readable registry is in `lib/data/source-registry.ts`. It 
 | U.S. Bureau of Economic Analysis | Core PCE year-over-year change from NIPA table 2.8.4, line 25 | `BEA_API_KEY` | Redis TTL 12 hours; stale after 60 calendar days |
 | U.S. Census Bureau | Advance monthly retail-trade sales, seasonally adjusted | `CENSUS_API_KEY` | Redis TTL 12 hours; stale after 45 calendar days |
 | U.S. Treasury Fiscal Data | Latest completed Treasury auction offering amount | None | Redis TTL 1 hour; stale after 7 calendar days |
-| Financial Modeling Prep | 20-session relative returns for KRE/SPY, RSP/SPY, IWM/SPY, and XLI/XLP | `FMP_API_KEY` and a plan licensed for the intended use | Redis TTL 24 hours; stale after 3 calendar days |
+| Nasdaq public market data | 20-session relative returns for KRE/SPY, RSP/SPY, IWM/SPY, and XLI/XLP; latest RSP and JNK daily closes | None | Redis TTL 6 hours; stale after 3 calendar days |
+| Financial Modeling Prep | SPX, VIX, gold (`GCUSD`), and Bitcoin (`BTCUSD`) market-snapshot quotes | `FMP_API_KEY` and a plan licensed for the intended use | Market-snapshot TTL; protected by the Redis daily quota ledger |
 
 Redis is optional. Set `REDIS_URL` to enable the shared cache; without it, adapters read their upstream sources directly. Only complete provider responses are cached. Unavailable or failed reads are retried on the next request rather than stored.
 
-FMP is the exception to the direct-fetch fallback: Redis is required to enforce the shared daily request budget, and FMP calls fail closed if the quota ledger is unavailable. The market snapshot caches upstream reads for 55 minutes during the U.S. market window and six hours outside it. The UI can poll the local API every five minutes without multiplying FMP calls.
+The AI market insight is a derived interpretation rather than a source adapter. A daily ChatGPT/Codex desktop task reads the normalized indicator and market-snapshot observations from the local application and writes a dated Markdown report using the versioned contract in `reports/market-insights/README.md`. The `pnpm insight:publish` script validates the report before converting it to the dashboard's structured JSON and writing a 48-hour dated Redis key plus an eight-day `latest` fallback. The application route is read-only with respect to the report: it does not call a model provider or generate on page load. The task prompt forbids invented facts and requires stale, unavailable, and conflicting inputs to be identified.
+
+FMP is the exception to the direct-fetch fallback: Redis is required to enforce the shared daily request budget, and FMP calls fail closed if the quota ledger is unavailable. Nasdaq ETF history does not use the FMP allowance and is cached for six hours. The market snapshot caches upstream reads for 55 minutes during the U.S. market window and six hours outside it. The UI can poll the local API every five minutes without multiplying FMP calls.
 
 Featured BLS readings use the BLS API first. If BLS is unavailable or its anonymous daily allowance is exhausted, the app automatically retrieves the equivalent BLS-originated series through FRED (`CPILFESL`, `PAYEMS`, and `UNRATE`). Successful fallback readings retain their FRED/BLS provenance and are cached for twelve hours.
 
@@ -27,12 +30,15 @@ Featured BLS readings use the BLS API first. If BLS is unavailable or its anonym
 - A current reading is the latest value returned by its authoritative source.
 - Observation date and retrieval time are different fields and are never conflated.
 - A source is marked stale when its observation date exceeds the registry threshold for its release frequency.
-- A missing FRED credential, source timeouts, malformed responses, and missing observations produce explicit unavailable readings; they do not silently reuse illustrative values. Unconfigured optional BEA, Census, and FMP providers are omitted instead.
+- A missing FRED credential, source timeouts, malformed responses, and missing observations produce explicit unavailable readings; they do not silently reuse illustrative values. Unconfigured optional BEA and Census providers are omitted instead.
 - Several macro series are revised. Dated weekly reviews retain the value, observation date, and retrieval timestamp available at save time. Later refreshes and outcome updates do not rewrite the historical decision context.
-- Financial Modeling Prep is the selected first licensed provider. Its adapter currently covers liquid ETF-pair proxies for regional banks, equal-weight breadth, small-versus-large caps, and cyclicals-versus-defensives. The UI labels the symbols and transformation rather than presenting a proxy as an official index.
+- Nasdaq public daily ETF prices cover the liquid ETF-pair proxies for regional banks, equal-weight breadth, small-versus-large caps, and cyclicals-versus-defensives. The UI labels the symbols and transformation rather than presenting a proxy as an official index. FMP remains limited to entitled market-snapshot quotes.
+- The Nasdaq market-activity endpoint is used as a credential-free local-research fallback, not as a contractual production feed. Confirm Nasdaq usage and display terms or select a licensed feed before public deployment.
 - Consensus earnings, futures-implied policy, exchange breadth, volatility-curve, and proprietary positioning measures remain isolated behind `licensed-market-data` classifications until the relevant FMP entitlement or a specialist feed is contracted. They are not silently replaced by public or illustrative values.
 - A configured API key establishes authentication, not redistribution rights. The operator is responsible for selecting an FMP plan whose licensing terms match the deployment and audience.
 
 ## Local configuration
 
-Copy `.env.example` to `.env.local`, add the keys for the sources you want to enable, and restart `pnpm dev`. Treasury and BLS sources work without required local credentials. BEA, Census, and FMP indicators are omitted from the API and UI when their corresponding keys are absent. FRED retains an explicit configuration-required state when `FRED_API_KEY` is missing because it also participates in the BLS fallback path.
+Copy `.env.example` to `.env.local`, add the keys for the sources you want to enable, and restart `pnpm dev`. Treasury, BLS, and Nasdaq ETF sources work without required local credentials. BEA and Census indicators are omitted from the API and UI when their corresponding keys are absent. FRED retains an explicit configuration-required state when `FRED_API_KEY` is missing because it also participates in the BLS fallback path. Without `FMP_API_KEY`, the market snapshot falls back to FRED where possible.
+
+Keep `REDIS_URL` configured and Redis running to enable the daily AI market insight. The scheduled desktop task uses the user's ChatGPT/Codex access rather than an OpenAI API key. If today's dated report is not present, the application uses the most recently published report; if neither key exists, the Overview card shows an explicit task/Redis message.

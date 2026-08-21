@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { AiMarketInsightPanel } from "@/components/ai-market-insight-panel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -42,7 +43,6 @@ import { sourceForIndicator } from "@/lib/data/source-registry";
 import type { IndicatorApiResponse } from "@/lib/data/types";
 import {
   INITIAL_PILLARS,
-  SCORE_OPTIONS,
   regimeFromScore,
   scoreLabel,
   totalScore,
@@ -223,10 +223,6 @@ export function MacroDashboard() {
   const pressures = pillars.filter((pillar) => pillar.score < 0);
   const completion = Math.round((completedChecks.length / dailyChecks.length) * 100);
 
-  function updateScore(id: string, score: Score) {
-    setPillars((current) => current.map((pillar) => (pillar.id === id ? { ...pillar, score } : pillar)));
-  }
-
   function addObservation() {
     const value = draftObservation.trim();
     if (!value) return;
@@ -380,7 +376,7 @@ export function MacroDashboard() {
 
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(310px,.7fr)]">
                   <Card
-                    className="grid-bg overflow-hidden border-0 text-white transition-[background-color,box-shadow] duration-500"
+                    className="grid-bg overflow-hidden border-0 text-white transition-[background-color,box-shadow] duration-500 xl:col-span-2"
                     style={{
                       backgroundColor: regimeTheme.background,
                       boxShadow: `0 24px 70px ${regimeTheme.shadow}`,
@@ -437,27 +433,14 @@ export function MacroDashboard() {
                     </CardContent>
                   </Card>
 
-                  <Card className="border-[#c7d7a0] bg-[#dcebb4] shadow-none">
-                    <CardHeader className="flex-row items-start justify-between space-y-0">
-                      <div>
-                        <p className="text-[9px] font-extrabold tracking-[0.2em] text-[#55705e]">THIS WEEK’S FOCUS</p>
-                        <CardTitle className="mt-8 font-display text-[28px] font-medium leading-[1.12] tracking-[-0.03em]">
-                          Are credit and equities confirming the same liquidity message?
-                        </CardTitle>
-                      </div>
-                      <span className="font-mono text-[10px] text-[#55705e]">01</span>
-                    </CardHeader>
-                    <CardContent className="mt-auto pt-7">
-                      <Button variant="ghost" className="w-full justify-between rounded-full px-0 text-xs font-bold hover:bg-transparent" onClick={() => setActiveTab("review")}>
-                        Open review checklist <ArrowRight className="size-4" />
-                      </Button>
-                    </CardContent>
-                  </Card>
+                  <div className="xl:col-span-2">
+                    <AiMarketInsightPanel />
+                  </div>
 
                   <Card className="border-[#d9ddd7] bg-[#fbfaf6] shadow-none">
                     <CardHeader className="flex-row items-end justify-between space-y-0">
                       <div>
-                        <p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">9 PILLARS · CLICK A SCORE TO EDIT</p>
+                        <p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">9 PILLARS · READ-ONLY STATUS</p>
                         <CardTitle className="font-display text-3xl font-medium tracking-tight">Weekly scorecard</CardTitle>
                       </div>
                       <Button variant="ghost" size="sm" className="text-xs text-[#175f47]" onClick={() => setActiveTab("indicators")}>
@@ -473,14 +456,16 @@ export function MacroDashboard() {
                               <p className="mb-0 text-sm font-semibold">{pillar.area}</p>
                               <p className="mb-0 mt-0.5 hidden text-[10px] text-[#78857f] md:block">{pillar.change}</p>
                             </div>
-                            <Select value={String(pillar.score)} onValueChange={(value) => updateScore(pillar.id, Number(value) as Score)}>
-                              <SelectTrigger className={cn("h-8 w-full rounded-full border px-3 text-[10px] font-bold shadow-none", scoreClasses(pillar.score))} aria-label={`Score ${pillar.area}`}>
-                                <SelectValue>{scoreLabel(pillar.score)}</SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {SCORE_OPTIONS.map((option) => <SelectItem key={option.value} value={String(option.value)}>{option.label} ({option.value > 0 ? "+" : ""}{option.value})</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "h-9 w-full justify-center rounded-full px-3 text-xs font-bold shadow-none",
+                                scoreClasses(pillar.score),
+                              )}
+                              aria-label={`${pillar.area} status: ${scoreLabel(pillar.score)}`}
+                            >
+                              {scoreLabel(pillar.score)}
+                            </Badge>
                             <div className="hidden items-center justify-end gap-2 text-[10px] text-[#6f7d78] sm:flex">
                               {pillar.trend}<TrendIcon trend={pillar.trend} />
                             </div>

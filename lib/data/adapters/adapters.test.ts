@@ -5,8 +5,8 @@ import { fetchBeaReadings } from "./bea";
 import { fetchBlsReadings } from "./bls";
 import { fetchBlsReadingsWithFredFallback } from "./bls-with-fred-fallback";
 import { fetchCensusReadings } from "./census";
-import { fetchFmpReadings } from "./fmp";
 import { fetchFredReadings } from "./fred";
+import { fetchNasdaqReadings } from "./nasdaq";
 import { fetchTreasuryAuctionReading, fetchTreasuryReading } from "./treasury";
 
 const now = new Date("2026-08-18T12:00:00Z");
@@ -177,7 +177,7 @@ describe("public macro adapters", () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("key=test-census-key");
   });
 
-  it("calculates licensed 20-session breadth from common FMP dates", async () => {
+  it("calculates 20-session breadth from common Nasdaq ETF dates", async () => {
     const source = FEATURED_SOURCE_DEFINITIONS.find(
       (item) => item.id === "breadth-equal-weight",
     )!;
@@ -185,16 +185,21 @@ describe("public macro adapters", () => {
       new Date(Date.UTC(2026, 7, 18 - index)).toISOString().slice(0, 10),
     );
     const fetcher = vi.fn(async (input: URL | RequestInfo) => {
-      const symbol = new URL(String(input)).searchParams.get("symbol");
-      return jsonResponse(
-        dates.map((date, index) => ({
-          date,
-          close: symbol === "RSP" && index === 0 ? 110 : 100,
-        })),
-      );
+      const symbol = new URL(String(input)).pathname.split("/").at(-2);
+      return jsonResponse({
+        data: {
+          tradesTable: {
+            rows: dates.map((date, index) => ({
+              date: `${date.slice(5, 7)}/${date.slice(8, 10)}/${date.slice(0, 4)}`,
+              close: String(symbol === "RSP" && index === 0 ? 110 : 100),
+            })),
+          },
+        },
+        status: { rCode: 200 },
+      });
     }) as unknown as typeof fetch;
 
-    const [reading] = await fetchFmpReadings([source], "test-fmp-key", { fetcher, now });
+    const [reading] = await fetchNasdaqReadings([source], { fetcher, now });
 
     expect(reading.displayValue).toBe("10.00%");
     expect(reading.observationDate).toBe("2026-08-18");
@@ -205,12 +210,10 @@ describe("public macro adapters", () => {
     const fetcher = vi.fn() as unknown as typeof fetch;
     const bea = FEATURED_SOURCE_DEFINITIONS.filter((item) => item.adapter === "bea");
     const census = FEATURED_SOURCE_DEFINITIONS.filter((item) => item.adapter === "census");
-    const fmp = FEATURED_SOURCE_DEFINITIONS.filter((item) => item.adapter === "fmp");
 
     const readings = [
       ...(await fetchBeaReadings(bea, undefined, { fetcher, now })),
       ...(await fetchCensusReadings(census, undefined, { fetcher, now })),
-      ...(await fetchFmpReadings(fmp, undefined, { fetcher, now })),
     ];
 
     expect(readings.length).toBeGreaterThan(0);

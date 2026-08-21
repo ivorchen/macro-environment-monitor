@@ -36,12 +36,13 @@ function createCache(values: Record<string, IndicatorReading[]>): IndicatorDataC
 }
 
 describe("indicator provider configuration", () => {
-  it("omits BEA, Census, and FMP indicators when their keys are absent", async () => {
+  it("omits keyed providers while retaining credential-free Nasdaq indicators", async () => {
     const fetcher = vi.fn() as unknown as typeof fetch;
     const response = await loadIndicatorReadings({
       cache: createCache({
         "readings:v1:bls": [],
         "readings:v2:treasury": [],
+        "readings:v3:nasdaq": [cachedReading("breadth-equal-weight", "Nasdaq")],
       }),
       fetcher,
       now,
@@ -51,10 +52,10 @@ describe("indicator provider configuration", () => {
       expect.arrayContaining([
         "inflation-core-pce",
         "growth-retail-sales",
-        "breadth-equal-weight",
       ]),
     );
-    expect(response.cache.hits).toEqual(["bls", "treasury"]);
+    expect(response.readings.map((reading) => reading.id)).toContain("breadth-equal-weight");
+    expect(response.cache.hits).toEqual(["bls", "treasury", "nasdaq"]);
     expect(response.cache.bypassed).toEqual(["fred"]);
     expect(fetcher).not.toHaveBeenCalled();
   });
@@ -64,13 +65,12 @@ describe("indicator provider configuration", () => {
     const response = await loadIndicatorReadings({
       beaApiKey: "bea-key",
       censusApiKey: "census-key",
-      fmpApiKey: "fmp-key",
       cache: createCache({
         "readings:v1:bls": [],
         "readings:v2:bea": [cachedReading("inflation-core-pce", "BEA")],
         "readings:v2:census": [cachedReading("growth-retail-sales", "Census")],
         "readings:v2:treasury": [],
-        "readings:v2:fmp": [cachedReading("breadth-equal-weight", "FMP")],
+        "readings:v3:nasdaq": [cachedReading("breadth-equal-weight", "Nasdaq")],
       }),
       fetcher,
       now,
@@ -83,7 +83,7 @@ describe("indicator provider configuration", () => {
         "breadth-equal-weight",
       ]),
     );
-    expect(response.cache.hits).toEqual(["bls", "bea", "census", "treasury", "fmp"]);
+    expect(response.cache.hits).toEqual(["bls", "bea", "census", "treasury", "nasdaq"]);
     expect(fetcher).not.toHaveBeenCalled();
   });
 });

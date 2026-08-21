@@ -39,3 +39,8 @@ yarn-error.log*
 /.wrangler/
 /outputs/
 /work/
+*.tsbuildinfo
+
+# generated daily market-insight reports
+/reports/market-insights/*.md
+!/reports/market-insights/README.md

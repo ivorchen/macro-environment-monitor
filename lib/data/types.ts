@@ -1,4 +1,4 @@
-export type SourceAdapter = "fred" | "treasury" | "bls" | "bea" | "census" | "fmp";
+export type SourceAdapter = "fred" | "treasury" | "bls" | "bea" | "census" | "nasdaq";
 
 export type SourceClassification =
   | "primary-public"
