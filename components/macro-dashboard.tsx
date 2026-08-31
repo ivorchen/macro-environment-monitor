@@ -13,6 +13,7 @@ import {
   CircleGauge,
   Database,
   History,
+  Landmark,
   LayoutDashboard,
   NotebookPen,
   Plus,
@@ -31,6 +32,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MarketSnapshotPanel } from "@/components/market-snapshot-panel";
+import { NfciYtdChart } from "@/components/nfci-ytd-chart";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
@@ -38,9 +40,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { SourceStatusPanel } from "@/components/source-status-panel";
+import { SenateTradesPanel } from "@/components/senate-trades-panel";
+import { SenateWeeklySummary } from "@/components/senate-weekly-summary";
 import { WeeklyHistoryPanel } from "@/components/weekly-history-panel";
 import { sourceForIndicator } from "@/lib/data/source-registry";
 import type { IndicatorApiResponse } from "@/lib/data/types";
+import type { NfciYtdResponse } from "@/lib/data/nfci";
+import type { SenateTradesResponse } from "@/lib/data/senate-trades";
 import {
   INITIAL_PILLARS,
   regimeFromScore,
@@ -57,6 +63,7 @@ import {
   updateReviewOutcome,
   type HypothesisDraft,
   type ReviewOutcome,
+  type SenateReviewEvidence,
   type WeeklyReviewSnapshot,
 } from "@/lib/review-history";
 import { cn } from "@/lib/utils";
@@ -77,6 +84,7 @@ const dailyChecks = [
   "Oil / gold / copper",
   "Today’s macro releases and Fed speakers",
   "Earnings revisions and AI-capex news",
+  "Senate disclosures and unusual filing lags",
 ];
 
 type ReviewState = {
@@ -256,6 +264,32 @@ export function MacroDashboard() {
       return "The indicator snapshot could not be captured. Check the source service and try again.";
     }
 
+    const optionalPayload = async <T,>(url: string): Promise<T | undefined> => {
+      try {
+        const response = await fetch(url, { cache: "no-store" });
+        return response.ok ? await response.json() as T : undefined;
+      } catch {
+        return undefined;
+      }
+    };
+    const [financialConditions, senatePayload] = await Promise.all([
+      optionalPayload<NfciYtdResponse>("/api/financial-conditions/nfci"),
+      optionalPayload<SenateTradesResponse>("/api/senate-trades?window=90D"),
+    ]);
+    const senateEvidence: SenateReviewEvidence | undefined = senatePayload ? {
+      generatedAt: senatePayload.generatedAt,
+      window: senatePayload.window,
+      windowStart: senatePayload.windowStart,
+      ruleVersion: senatePayload.ruleVersion,
+      status: senatePayload.status,
+      freshness: senatePayload.freshness,
+      overview: senatePayload.overview,
+      bipartisan: senatePayload.bipartisan,
+      popularByParty: senatePayload.popularByParty,
+      eligibleTransactions: senatePayload.transactions.filter((transaction) => transaction.eligiblePurchase),
+      quality: senatePayload.quality,
+    } : undefined;
+
     const snapshot = createWeeklyReviewSnapshot({
       id: globalThis.crypto?.randomUUID?.() ?? `review-${Date.now()}`,
       reviewDate,
@@ -279,6 +313,8 @@ export function MacroDashboard() {
       observations,
       completedChecks,
       indicatorReadings: payload.readings,
+      financialConditions,
+      senateEvidence,
       hypothesis,
     });
 
@@ -307,6 +343,7 @@ export function MacroDashboard() {
               { value: "indicators", label: "Indicators", icon: BarChart3 },
               { value: "review", label: "Weekly review", icon: BookOpenCheck },
               { value: "journal", label: "Decision journal", icon: History },
+              { value: "senate", label: "Senate trades", icon: Landmark },
             ].map((item) => (
               <Tooltip key={item.value}>
                 <TooltipTrigger asChild>
@@ -354,6 +391,7 @@ export function MacroDashboard() {
                     <TabsTrigger value="indicators" className="rounded-full px-4 text-xs">Indicators</TabsTrigger>
                     <TabsTrigger value="review" className="rounded-full px-4 text-xs">Review</TabsTrigger>
                     <TabsTrigger value="journal" className="rounded-full px-4 text-xs">Journal</TabsTrigger>
+                    <TabsTrigger value="senate" className="rounded-full px-4 text-xs">Senate</TabsTrigger>
                   </TabsList>
                   <Button className="rounded-full bg-[#175f47] px-4 text-xs text-white hover:bg-[#104b38]" onClick={() => setActiveTab("review")}>
                     <NotebookPen className="size-4" />
@@ -517,6 +555,7 @@ export function MacroDashboard() {
                   </Card>
                 </div>
 
+                <NfciYtdChart />
                 <MarketSnapshotPanel />
               </div>
             </TabsContent>
@@ -579,6 +618,8 @@ export function MacroDashboard() {
                     <Button className="rounded-full bg-[#175f47] hover:bg-[#104b38]" onClick={() => setActiveTab("journal")}><Save className="size-4" /> Open journal</Button>
                   </div>
                 </div>
+
+                <SenateWeeklySummary />
 
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.75fr)]">
                   <Card className="border-[#d9ddd7] bg-[#fbfaf6] shadow-none">
@@ -685,6 +726,10 @@ export function MacroDashboard() {
                 onSaveReview={saveWeeklyReview}
                 onUpdateOutcome={reviseOutcome}
               />
+            </TabsContent>
+
+            <TabsContent value="senate" className="m-0 focus-visible:outline-none">
+              <SenateTradesPanel />
             </TabsContent>
           </Tabs>
         </div>

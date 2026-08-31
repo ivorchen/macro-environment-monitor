@@ -2,6 +2,8 @@
 
 The scheduled desktop task writes one file named `YYYY-MM-DD.md` in this directory, then runs `pnpm insight:publish -- reports/market-insights/YYYY-MM-DD.md`. Generated reports are intentionally ignored by Git; this contract remains versioned.
 
+The task should retrieve `/api/indicators`, `/api/market-snapshot`, `/api/financial-conditions/nfci`, and `/api/senate-trades?window=90D`. NFCI and Senate inputs are descriptive context only: identify their observation/disclosure dates, freshness, missing or partial states, and cross-signal agreement or conflict. Never infer intent from a disclosure, treat the filing as a live trade, invent an exact amount from a range, or let Senate activity mechanically determine the macro regime.
+
 Use the New York calendar date and this exact structure:
 
 ```markdown

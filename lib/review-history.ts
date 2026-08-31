@@ -1,4 +1,12 @@
 import type { IndicatorReading } from "./data/types";
+import type { NfciYtdResponse } from "./data/nfci";
+import type {
+  SenateDataQuality,
+  SenatePartyRanking,
+  SenateTickerAggregate,
+  SenateTradesResponse,
+  NormalizedSenateTransaction,
+} from "./data/senate-trades";
 import type { Pillar, Score, Trend } from "./macro";
 
 export const REVIEW_HISTORY_STORAGE_KEY = "macro-monitor-history-v1";
@@ -55,8 +63,24 @@ export type WeeklyReviewSnapshot = {
   observations: string[];
   completedChecks: string[];
   indicatorReadings: IndicatorReading[];
+  financialConditions?: NfciYtdResponse;
+  senateEvidence?: SenateReviewEvidence;
   hypothesis: HypothesisDraft;
   outcome: ReviewOutcome;
+};
+
+export type SenateReviewEvidence = {
+  generatedAt: string;
+  window: SenateTradesResponse["window"];
+  windowStart: string;
+  ruleVersion: SenateTradesResponse["ruleVersion"];
+  status: SenateTradesResponse["status"];
+  freshness: SenateTradesResponse["freshness"];
+  overview: SenateTradesResponse["overview"];
+  bipartisan: SenateTickerAggregate[];
+  popularByParty: Record<"Democratic" | "Republican" | "Independent/Other", SenatePartyRanking[]>;
+  eligibleTransactions: NormalizedSenateTransaction[];
+  quality: SenateDataQuality;
 };
 
 export type WeeklyReviewInput = {
@@ -72,6 +96,8 @@ export type WeeklyReviewInput = {
   observations: string[];
   completedChecks: string[];
   indicatorReadings: IndicatorReading[];
+  financialConditions?: NfciYtdResponse;
+  senateEvidence?: SenateReviewEvidence;
   hypothesis: HypothesisDraft;
 };
 
@@ -116,6 +142,39 @@ export function createWeeklyReviewSnapshot(input: WeeklyReviewInput): WeeklyRevi
     observations: [...input.observations],
     completedChecks: [...input.completedChecks],
     indicatorReadings: input.indicatorReadings.map((reading) => ({ ...reading })),
+    financialConditions: input.financialConditions
+      ? {
+          ...input.financialConditions,
+          points: input.financialConditions.points.map((point) => ({ ...point })),
+          statistics: input.financialConditions.statistics
+            ? {
+                ...input.financialConditions.statistics,
+                latest: { ...input.financialConditions.statistics.latest },
+                ytdStart: { ...input.financialConditions.statistics.ytdStart },
+                ytdHigh: { ...input.financialConditions.statistics.ytdHigh },
+                ytdLow: { ...input.financialConditions.statistics.ytdLow },
+              }
+            : null,
+        }
+      : undefined,
+    senateEvidence: input.senateEvidence
+      ? {
+          ...input.senateEvidence,
+          overview: { ...input.senateEvidence.overview },
+          bipartisan: input.senateEvidence.bipartisan.map((item) => ({ ...item, amountRange: { ...item.amountRange } })),
+          popularByParty: {
+            Democratic: input.senateEvidence.popularByParty.Democratic.map((item) => ({ ...item, amountRange: { ...item.amountRange } })),
+            Republican: input.senateEvidence.popularByParty.Republican.map((item) => ({ ...item, amountRange: { ...item.amountRange } })),
+            "Independent/Other": input.senateEvidence.popularByParty["Independent/Other"].map((item) => ({ ...item, amountRange: { ...item.amountRange } })),
+          },
+          eligibleTransactions: input.senateEvidence.eligibleTransactions.map((item) => ({
+            ...item,
+            amountRange: { ...item.amountRange },
+            supersededSourceIds: [...item.supersededSourceIds],
+          })),
+          quality: { ...input.senateEvidence.quality, notes: [...input.senateEvidence.quality.notes] },
+        }
+      : undefined,
     hypothesis: { ...input.hypothesis },
     outcome: {
       rating: null,
@@ -291,6 +350,30 @@ export function reviewToMarkdown(review: WeeklyReviewSnapshot, previous?: Weekly
     ...review.indicatorReadings.map((reading) =>
       `| ${tableCell(reading.indicator)} | ${tableCell(reading.displayValue)} | ${reading.observationDate ?? "Unavailable"} | ${tableCell(reading.providerShort)} | ${reading.freshness} |`,
     ),
+    ...(review.financialConditions ? [
+      "",
+      "## Financial conditions evidence",
+      "",
+      `- **NFCI status:** ${review.financialConditions.freshness}`,
+      `- **Latest observation:** ${review.financialConditions.statistics ? `${review.financialConditions.statistics.latest.value.toFixed(3)} on ${review.financialConditions.statistics.latest.date}` : "Unavailable"}`,
+      `- **YTD change:** ${review.financialConditions.statistics ? review.financialConditions.statistics.ytdChange.toFixed(3) : "Unavailable"}`,
+      `- **4-week direction:** ${review.financialConditions.statistics?.direction ?? "Unavailable"}`,
+      `- **Captured weekly observations:** ${review.financialConditions.points.length}`,
+    ] : []),
+    ...(review.senateEvidence ? [
+      "",
+      "## Senate disclosure evidence",
+      "",
+      `- **Window:** ${review.senateEvidence.window}, transaction dates from ${review.senateEvidence.windowStart}`,
+      `- **Rule:** ${review.senateEvidence.ruleVersion}`,
+      `- **Status:** ${review.senateEvidence.status} / ${review.senateEvidence.freshness}`,
+      `- **Eligible purchases:** ${review.senateEvidence.overview.eligiblePurchases}`,
+      `- **Bipartisan tickers:** ${review.senateEvidence.bipartisan.map((item) => item.ticker).join(", ") || "None"}`,
+      `- **Democratic leaders:** ${review.senateEvidence.popularByParty.Democratic.slice(0, 3).map((item) => `${item.ticker} (${item.distinctBuyers})`).join(", ") || "None"}`,
+      `- **Republican leaders:** ${review.senateEvidence.popularByParty.Republican.slice(0, 3).map((item) => `${item.ticker} (${item.distinctBuyers})`).join(", ") || "None"}`,
+      "",
+      "> Senate disclosures are delayed and categorical. This section is descriptive and does not alter the macro score.",
+    ] : []),
     "",
     "> This export preserves the values retrieved when the review was saved. Later source revisions do not rewrite this snapshot.",
   ];

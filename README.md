@@ -24,9 +24,9 @@ Copy `.env.example` to `.env.local` and add keys for the sources you want to ena
 
 An optional `BLS_API_KEY` raises BLS's daily request allowance. When anonymous BLS access is exhausted, the featured Core CPI, payrolls, and unemployment readings automatically fall back to their BLS-originated FRED series using `FRED_API_KEY`.
 
-`FMP_API_KEY` enables quota-protected SPX, VIX, gold (`GCUSD`), and Bitcoin (`BTCUSD`) quotes in the market snapshot. The four 20-session ETF relative-strength indicators use Nasdaq public daily market data for KRE/SPY, RSP/SPY, IWM/SPY, and XLI/XLP, so they do not consume the FMP allowance. Choose an FMP subscription whose usage and display rights match your deployment; a key alone does not grant redistribution rights.
+`FMP_API_KEY` enables quota-protected SPX, VIX, gold (`GCUSD`), and Bitcoin (`BTCUSD`) quotes in the market snapshot, plus the delayed Senate financial-disclosure feed when the configured plan permits that endpoint. The four 20-session ETF relative-strength indicators use Nasdaq public daily market data for KRE/SPY, RSP/SPY, IWM/SPY, and XLI/XLP, so they do not consume the FMP allowance. Choose an FMP subscription whose usage and display rights match your deployment; a key alone does not grant redistribution rights.
 
-To enable shared source caching, also set `REDIS_URL` to a `redis://` or TLS `rediss://` connection string. Redis is required for FMP quota protection. FRED and Treasury provider payloads are cached for one hour, BLS payloads for twelve hours, and Nasdaq ETF history for six hours. FMP calls fail closed when the shared quota ledger is unavailable.
+To enable shared source caching, also set `REDIS_URL` to a `redis://` or TLS `rediss://` connection string. Redis is required for FMP quota protection. FRED and Treasury provider payloads are cached for one hour, BLS payloads for twelve hours, and Nasdaq ETF history, NFCI history, and normalized Senate disclosure results for six hours. Market quotes have a 40-call daily ledger and Senate pagination has a separate eight-call daily ledger. FMP calls fail closed when the shared quota ledger is unavailable.
 
 The AI market insight is published by a daily ChatGPT/Codex desktop task, so it does not require `OPENAI_API_KEY` or API credits. The task reads the dashboard's current indicator and market-snapshot observations, writes `reports/market-insights/YYYY-MM-DD.md`, and runs `pnpm insight:publish` to validate the Markdown and store structured JSON in Redis. Redis is required by the Overview card. Dated reports live for 48 hours; an eight-day `latest` key keeps the previous report visible until the next task completes. Keep the Mac awake and the desktop app running at the scheduled time. AI synthesis is informational and should be checked against the linked source observations.
 
@@ -81,13 +81,28 @@ The S&P 500, VIX, gold, and Bitcoin cards use individual FMP quotes supported by
 
 The Overview page's AI market insight is generated once each New York day by the scheduled desktop task. It summarizes only the readings retrieved from the local application, identifies stale or unavailable inputs, and provides an expandable detailed report. The web route only reads the published Redis value and never calls the OpenAI API. See [the report contract](reports/market-insights/README.md) for the exact Markdown structure and manual publish command.
 
+## Financial conditions
+
+The Overview includes a reusable **Chicago Fed NFCI — YTD** chart backed by FRED's weekly `NFCI` series. The `/api/financial-conditions/nfci` route accepts an optional `year` query, preserves every available weekly observation without interpolation, and returns the latest value, YTD change/high/low, four-week change, direction, source, observation date, retrieval time, and freshness. Positive NFCI values are tighter than average and negative values are looser than average; the chart is an aggregate cross-check, not a tenth pillar or a mechanical signal.
+
+Saved weekly reviews retain the complete NFCI point set and derived statistics available at save time so a historical chart can be reproduced without newer observations.
+
+## Senate trading disclosures
+
+The **Senate trades** workspace uses FMP's paginated Latest Senate Financial Disclosures endpoint and cross-checks party codes with the official Senate XML roster. It supports 30D, 90D, YTD, and 1Y transaction-date windows, defaulting to 90D. Direct-equity purchases are normalized separately from other disclosed assets; spouse and dependent-child ownership remain labeled, amounts remain lower/upper ranges, and trade date, disclosure date, lag, source link, freshness, deduplication, and amendment lineage remain visible.
+
+Bipartisan results require at least one distinct Democratic and one distinct Republican senator household. Party lists rank first by distinct senators, then event count, most recent transaction date, and ticker; Independents remain separate. The current-roster party resolution is explicitly labeled, and unmapped members do not silently enter party rankings. The module is descriptive and never changes the nine-pillar score.
+
+Cached APIs are available at `/api/senate-trades`, `/api/senate-trades/recent`, `/api/senate-trades/bipartisan`, `/api/senate-trades/popular`, and `/api/senate-trades/ticker/[ticker]`. Saved weekly reviews retain the selected window, rule version, aggregates, and eligible source evidence.
+
 ## Interface behavior
 
 - Weekly scorecard status chips are read-only summaries of each pillar's saved score. Scores remain editable through the score controls in the pillar workspace, while the larger chips make the weekly overview easier to scan.
 - The market snapshot presents nine cards in a maximum three-column grid: SPX, Nasdaq 100, equal weight, 10-year real yield, high-yield OAS, VIX, gold, JNK, and Bitcoin.
 - The regime summary and AI market insight use separate full-width rows on large screens, avoiding stretched side-by-side cards.
 - **Read detailed analysis** expands the AI insight card in place and displays the complete report. It does not open a modal or introduce a nested scrolling area; **Hide detailed analysis** collapses it again.
+- **Senate trades** is a separate read-only research workspace with an explicit unavailable state when FMP or Redis quota protection cannot be reached.
 
 ## Weekly history
 
-The Journal view saves versioned, dated review snapshots in browser local storage. Each snapshot freezes the scorecard, review narrative, hypothesis, checklist, and authoritative readings available at save time. The latest two reviews can be compared, outcomes can be scored later without rewriting the original evidence, and every review can be exported as Markdown.
+The Journal view saves versioned, dated review snapshots in browser local storage. Each snapshot freezes the scorecard, review narrative, hypothesis, checklist, authoritative readings, complete NFCI YTD history, and 90-day Senate aggregate evidence available at save time. The latest two reviews can be compared, outcomes can be scored later without rewriting the original evidence, and every review can be exported as Markdown.
