@@ -100,6 +100,22 @@ function nasdaq(input: PublicSourceInput): IndicatorSourceDefinition {
   };
 }
 
+function polymarket(input: PublicSourceInput): IndicatorSourceDefinition {
+  return {
+    ...input,
+    provider: "Polymarket Gamma API",
+    providerShort: "Polymarket",
+    classification: "aggregated-public",
+    format: input.format ?? "percent",
+    calculation: input.calculation ?? "latest",
+    transformation: input.transformation ?? "Normalized probability of the leading decision direction",
+    revisionPolicy: "Prediction-market prices change continuously. Dated reviews retain the distribution and retrieval timestamp available at review time.",
+    sourceUrl: `https://polymarket.com/event/${input.seriesId}`,
+    adapter: "polymarket",
+    integration: "active",
+  };
+}
+
 function mapped(input: {
   id: string;
   pillarId: string;
@@ -178,6 +194,7 @@ export const INDICATOR_SOURCE_REGISTRY: readonly IndicatorSourceDefinition[] = [
   fred({ id: "liquidity-financial-conditions", pillarId: "liquidity", indicator: "Financial conditions", seriesId: "NFCI", frequency: "weekly", unit: "Standard deviations", staleAfterDays: 10 }),
 
   mapped({ id: "rates-fed-funds-path", pillarId: "rates", indicator: "Fed funds path", provider: "CME Group FedWatch / licensed futures feed", providerShort: "Market data", classification: "licensed-market-data", frequency: "daily", unit: "Probability / implied rate", sourceUrl: "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html", integration: "licensed", staleAfterDays: 2, transformation: "Fed-funds futures probabilities by meeting" }),
+  polymarket({ id: "rates-polymarket-september-fed", pillarId: "rates", indicator: "Sep Fed decision", seriesId: "fed-decision-in-september-762", frequency: "daily", unit: "Normalized probability", format: "percent", staleAfterDays: 2, featured: true, transformation: "Normalized cut, hold, and hike probabilities from the displayed September 2026 outcome brackets" }),
   fred({ id: "rates-2y", pillarId: "rates", indicator: "2Y yield", seriesId: "DGS2", frequency: "daily", unit: "Percent", format: "percent", staleAfterDays: 4, featured: true }),
   fred({ id: "rates-10y", pillarId: "rates", indicator: "10Y yield", seriesId: "DGS10", frequency: "daily", unit: "Percent", format: "percent", staleAfterDays: 4, featured: true }),
   fred({ id: "rates-real-10y", pillarId: "rates", indicator: "10Y real yield", seriesId: "DFII10", frequency: "daily", unit: "Percent", format: "percent", staleAfterDays: 4, featured: true }),

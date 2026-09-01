@@ -31,7 +31,7 @@ export const INITIAL_PILLARS: Pillar[] = [
     trend: "Stable",
     question: "Are yields moving because of growth, inflation, or term premium?",
     change: "The curve was little changed; real yields remain the key constraint.",
-    indicators: ["Fed funds path", "2Y yield", "10Y yield", "10Y real yield", "2s10s", "Term premium"],
+    indicators: ["Fed funds path", "Sep Fed decision", "2Y yield", "10Y yield", "10Y real yield", "2s10s", "Term premium"],
   },
   {
     id: "inflation",

@@ -34,6 +34,7 @@ export const PROVIDER_CACHE_TTL_SECONDS: Record<CacheProvider, number> = {
   bea: 12 * 60 * 60,
   census: 12 * 60 * 60,
   nasdaq: 6 * 60 * 60,
+  polymarket: 15 * 60,
 };
 
 export async function loadCachedProvider<T>(options: {

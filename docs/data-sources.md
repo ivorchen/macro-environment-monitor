@@ -11,6 +11,7 @@ The canonical machine-readable registry is in `lib/data/source-registry.ts`. It 
 | U.S. Treasury Fiscal Data | Treasury General Account closing balance | None | Redis TTL 1 hour; stale after 4 calendar days |
 | U.S. Bureau of Labor Statistics | Core CPI, payrolls, unemployment | Optional `BLS_API_KEY`; FRED fallback uses `FRED_API_KEY` | Redis TTL 12 hours; stale after 45 calendar days |
 | FRED | Fed balance sheet, ON RRP, Treasury yields, real yield, high-yield spread, and complete Chicago Fed NFCI YTD weekly history | `FRED_API_KEY` | Provider readings TTL 1 hour; NFCI history TTL 6 hours; source-specific stale thresholds |
+| Polymarket Gamma API | September 2026 Fed-decision cut, hold, and hike distribution | None | TTL 15 minutes; unavailable on malformed, empty, or failed event responses |
 | U.S. Bureau of Economic Analysis | Core PCE year-over-year change from NIPA table 2.8.4, line 25 | `BEA_API_KEY` | Redis TTL 12 hours; stale after 60 calendar days |
 | U.S. Census Bureau | Advance monthly retail-trade sales, seasonally adjusted | `CENSUS_API_KEY` | Redis TTL 12 hours; stale after 45 calendar days |
 | U.S. Treasury Fiscal Data | Latest completed Treasury auction offering amount | None | Redis TTL 1 hour; stale after 7 calendar days |

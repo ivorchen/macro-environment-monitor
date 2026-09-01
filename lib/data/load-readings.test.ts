@@ -43,6 +43,7 @@ describe("indicator provider configuration", () => {
         "readings:v1:bls": [],
         "readings:v2:treasury": [],
         "readings:v3:nasdaq": [cachedReading("breadth-equal-weight", "Nasdaq")],
+        "readings:v1:polymarket": [cachedReading("rates-polymarket-september-fed", "Polymarket")],
       }),
       fetcher,
       now,
@@ -55,7 +56,7 @@ describe("indicator provider configuration", () => {
       ]),
     );
     expect(response.readings.map((reading) => reading.id)).toContain("breadth-equal-weight");
-    expect(response.cache.hits).toEqual(["bls", "treasury", "nasdaq"]);
+    expect(response.cache.hits).toEqual(["bls", "treasury", "nasdaq", "polymarket"]);
     expect(response.cache.bypassed).toEqual(["fred"]);
     expect(fetcher).not.toHaveBeenCalled();
   });
@@ -71,6 +72,7 @@ describe("indicator provider configuration", () => {
         "readings:v2:census": [cachedReading("growth-retail-sales", "Census")],
         "readings:v2:treasury": [],
         "readings:v3:nasdaq": [cachedReading("breadth-equal-weight", "Nasdaq")],
+        "readings:v1:polymarket": [cachedReading("rates-polymarket-september-fed", "Polymarket")],
       }),
       fetcher,
       now,
@@ -83,7 +85,7 @@ describe("indicator provider configuration", () => {
         "breadth-equal-weight",
       ]),
     );
-    expect(response.cache.hits).toEqual(["bls", "bea", "census", "treasury", "nasdaq"]);
+    expect(response.cache.hits).toEqual(["bls", "bea", "census", "treasury", "nasdaq", "polymarket"]);
     expect(fetcher).not.toHaveBeenCalled();
   });
 });

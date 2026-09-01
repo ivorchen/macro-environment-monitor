@@ -7,6 +7,7 @@ import { fetchBlsReadingsWithFredFallback } from "./bls-with-fred-fallback";
 import { fetchCensusReadings } from "./census";
 import { fetchFredReadings } from "./fred";
 import { fetchNasdaqReadings } from "./nasdaq";
+import { fetchPolymarketReadings } from "./polymarket";
 import { fetchTreasuryAuctionReading, fetchTreasuryReading } from "./treasury";
 
 const now = new Date("2026-08-18T12:00:00Z");
@@ -204,6 +205,43 @@ describe("public macro adapters", () => {
     expect(reading.displayValue).toBe("10.00%");
     expect(reading.observationDate).toBe("2026-08-18");
     expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("normalizes the Polymarket September Fed brackets into cut, hold, and hike", async () => {
+    const source = FEATURED_SOURCE_DEFINITIONS.find(
+      (item) => item.id === "rates-polymarket-september-fed",
+    )!;
+    const market = (groupItemTitle: string, yesPrice: string, updatedAt = "2026-08-18T11:55:00Z") => ({
+      groupItemTitle,
+      outcomes: JSON.stringify(["Yes", "No"]),
+      outcomePrices: JSON.stringify([yesPrice, String(1 - Number(yesPrice))]),
+      updatedAt,
+    });
+    const fetchMock = vi.fn(async (input: URL | RequestInfo) => {
+      expect(String(input)).toContain("slug=fed-decision-in-september-762");
+      return jsonResponse([{
+        slug: "fed-decision-in-september-762",
+        updatedAt: "2026-08-18T12:00:00Z",
+        markets: [
+          market("50+ bps decrease", "0.10"),
+          market("25 bps decrease", "0.20"),
+          market("No change", "0.30"),
+          market("25 bps increase", "0.35"),
+          market("50+ bps increase", "0.05", "2026-08-18T12:00:00Z"),
+        ],
+      }]);
+    });
+
+    const [reading] = await fetchPolymarketReadings([source], {
+      fetcher: fetchMock as unknown as typeof fetch,
+      now,
+    });
+
+    expect(reading.value).toBeCloseTo(40);
+    expect(reading.displayValue).toBe("Hike 40.0%");
+    expect(reading.transformation).toBe("Normalized distribution: cut 30.0%, hold 30.0%, hike 40.0%");
+    expect(reading.observationDate).toBe("2026-08-18");
+    expect(reading.freshness).toBe("fresh");
   });
 
   it("makes every newly keyed provider explicit when credentials are missing", async () => {

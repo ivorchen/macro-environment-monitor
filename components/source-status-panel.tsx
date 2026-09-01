@@ -180,7 +180,7 @@ export function SourceStatusPanel() {
       )}
 
       <p className="mt-3 text-[10px] leading-4 text-[#74817b]">
-        Observation dates and retrieval freshness are shown separately. Optional BEA and Census indicators appear only when their server-side API keys are configured; a missing FRED key remains explicit. Nasdaq daily ETF prices supply the relative-strength indicators without consuming the FMP allowance. Manual scoring remains independent of source availability.
+        Observation dates and retrieval freshness are shown separately. Optional BEA and Census indicators appear only when their server-side API keys are configured; a missing FRED key remains explicit. Nasdaq daily ETF prices supply the relative-strength indicators without consuming the FMP allowance. The Polymarket reading is a market-implied distribution, not an official Federal Reserve forecast. Manual scoring remains independent of source availability.
         {payload && (
           <span className="ml-1">
             {payload.cache.backend === "redis"

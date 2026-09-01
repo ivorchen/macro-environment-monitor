@@ -3,6 +3,7 @@ import { fetchBlsReadingsWithFredFallback } from "./adapters/bls-with-fred-fallb
 import { fetchCensusReadings } from "./adapters/census";
 import { fetchFredReadings } from "./adapters/fred";
 import { fetchNasdaqReadings } from "./adapters/nasdaq";
+import { fetchPolymarketReadings } from "./adapters/polymarket";
 import { fetchTreasuryReadings } from "./adapters/treasury";
 import {
   PROVIDER_CACHE_TTL_SECONDS,
@@ -30,12 +31,13 @@ export async function loadIndicatorReadings(
   const censusSources = FEATURED_SOURCE_DEFINITIONS.filter((source) => source.adapter === "census");
   const treasurySources = FEATURED_SOURCE_DEFINITIONS.filter((source) => source.adapter === "treasury");
   const nasdaqSources = FEATURED_SOURCE_DEFINITIONS.filter((source) => source.adapter === "nasdaq");
+  const polymarketSources = FEATURED_SOURCE_DEFINITIONS.filter((source) => source.adapter === "polymarket");
   const skippedProvider = Promise.resolve({
     value: [] as IndicatorReading[],
     status: "bypass" as const,
   });
 
-  const [fredResult, blsResult, beaResult, censusResult, treasuryResult, nasdaqResult] = await Promise.all([
+  const [fredResult, blsResult, beaResult, censusResult, treasuryResult, nasdaqResult, polymarketResult] = await Promise.all([
     loadCachedProvider({
       cache: options.fredApiKey ? options.cache : undefined,
       cacheKey: "readings:v1:fred",
@@ -90,6 +92,14 @@ export async function loadIndicatorReadings(
       shouldCache: (readings) =>
         readings.every((reading) => reading.freshness !== "unavailable"),
     }),
+    loadCachedProvider({
+      cache: options.cache,
+      cacheKey: "readings:v1:polymarket",
+      ttlSeconds: PROVIDER_CACHE_TTL_SECONDS.polymarket,
+      loader: () => fetchPolymarketReadings(polymarketSources, options),
+      shouldCache: (readings) =>
+        readings.every((reading) => reading.freshness !== "unavailable"),
+    }),
   ]);
 
   const providerStatuses: Array<{ provider: CacheProvider; status: CacheResultStatus }> = [
@@ -101,6 +111,7 @@ export async function loadIndicatorReadings(
       : []),
     { provider: "treasury", status: treasuryResult.status },
     { provider: "nasdaq", status: nasdaqResult.status },
+    { provider: "polymarket", status: polymarketResult.status },
   ];
 
   const readings = [
@@ -110,6 +121,7 @@ export async function loadIndicatorReadings(
     ...censusResult.value,
     ...treasuryResult.value,
     ...nasdaqResult.value,
+    ...polymarketResult.value,
   ]
     .filter((reading): reading is IndicatorReading => reading !== null)
     .sort((a, b) => {

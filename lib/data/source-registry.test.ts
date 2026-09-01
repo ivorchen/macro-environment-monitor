@@ -48,5 +48,6 @@ describe("indicator source registry", () => {
       ),
     ).toBe(true);
     expect(INDICATOR_SOURCE_REGISTRY.filter((source) => source.adapter === "nasdaq")).toHaveLength(4);
+    expect(INDICATOR_SOURCE_REGISTRY.filter((source) => source.adapter === "polymarket")).toHaveLength(1);
   });
 });
