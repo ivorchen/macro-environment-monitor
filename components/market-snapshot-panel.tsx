@@ -7,11 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { MarketSnapshotResponse } from "@/lib/data/market-snapshot";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
-function formatObservation(value: string | null) {
-  if (!value) return "No observation";
+function formatObservation(value: string | null, locale: string, noObservation: string) {
+  if (!value) return noObservation;
   const date = new Date(value.length === 10 ? `${value}T00:00:00Z` : value);
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     hour: value.length === 10 ? undefined : "numeric",
@@ -22,6 +23,7 @@ function formatObservation(value: string | null) {
 }
 
 export function MarketSnapshotPanel() {
+  const { intlLocale, t } = useI18n();
   const [payload, setPayload] = useState<MarketSnapshotResponse | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
@@ -56,35 +58,35 @@ export function MarketSnapshotPanel() {
       <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
         <div>
           <p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">
-            CROSS-ASSET CONFIRMATION
+            {t("market.eyebrow").toUpperCase()}
           </p>
-          <h3 className="font-display text-3xl">Market snapshot</h3>
+          <h3 className="font-display text-3xl">{t("market.title")}</h3>
         </div>
         <div className="flex items-center gap-2">
           {payload && (
             <span className="text-[9px] text-[#74817b]">
-              Updated {formatObservation(payload.generatedAt)}
+              {t("common.updated", { value: formatObservation(payload.generatedAt, intlLocale, t("common.noObservation")) })}
             </span>
           )}
           <Badge
             variant="outline"
             className="border-[#d4d9d3] bg-[#fbfaf6] text-[9px] text-[#6f7d78]"
           >
-            LATEST AVAILABLE
+            {t("common.latestAvailable").toUpperCase()}
           </Badge>
         </div>
       </div>
 
       {status === "loading" && !payload && (
         <div className="grid min-h-32 place-items-center rounded-2xl border border-[#d9ddd7] bg-[#fbfaf6]">
-          <LoaderCircle className="size-5 animate-spin text-[#718079]" aria-label="Loading market snapshot" />
+          <LoaderCircle className="size-5 animate-spin text-[#718079]" aria-label={t("market.loading")} />
         </div>
       )}
 
       {status === "error" && !payload && (
         <Card className="border-[#e3beb7] bg-[#f6e7e3] shadow-none">
           <CardContent className="p-4 text-xs text-[#813d35]">
-            The market snapshot could not be loaded. Check the Redis and provider connections.
+            {t("market.error")}
           </CardContent>
         </Card>
       )}
@@ -121,7 +123,7 @@ export function MarketSnapshotPanel() {
                   </span>
                 </div>
                 <div className="mt-4 border-t border-[#e1e3df] pt-2 text-[8px] leading-4 text-[#87928d]">
-                  <p>{market.provider} · {formatObservation(market.observationAt)}</p>
+                  <p>{market.provider} · {formatObservation(market.observationAt, intlLocale, t("common.noObservation"))}</p>
                   {market.errorMessage && <p className="mt-1 text-[#9a463c]">{market.errorMessage}</p>}
                 </div>
               </CardContent>
@@ -131,9 +133,7 @@ export function MarketSnapshotPanel() {
       )}
 
       <p className="mt-2 text-[9px] leading-4 text-[#87928d]">
-        FMP Basic supplies quota-protected SPX, VIX, gold, and Bitcoin quotes. FRED and Nasdaq
-        observations are daily closes; Nasdaq supplies RSP and JNK without consuming the FMP
-        allowance.
+        {t("market.footer")}
       </p>
     </section>
   );

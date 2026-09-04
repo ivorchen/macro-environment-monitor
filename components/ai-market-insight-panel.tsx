@@ -7,11 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DailyMarketInsightResponse } from "@/lib/data/market-insight";
+import { useI18n } from "@/lib/i18n";
 
 type InsightStatus = "loading" | "ready" | "error";
 
-function formatGeneratedAt(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
+function formatGeneratedAt(value: string, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -24,13 +25,13 @@ function formatGeneratedAt(value: string) {
 function ReportList({ title, items }: { title: string; items: string[] }) {
   return (
     <section>
-      <h4 className="mb-3 text-[10px] font-extrabold tracking-[0.18em] text-[#60726a]">
+      <h4 className="mb-3 text-[10px] font-extrabold tracking-[0.18em] text-[#a8b3c1]">
         {title.toUpperCase()}
       </h4>
       <ul className="space-y-2.5">
         {items.map((item) => (
-          <li className="grid grid-cols-[8px_1fr] gap-3 text-sm leading-6 text-[#34443d]" key={item}>
-            <span className="mt-2 size-1.5 rounded-full bg-[#76a15d]" aria-hidden="true" />
+          <li className="grid grid-cols-[8px_1fr] gap-3 text-sm leading-6 text-[#cbd3de]" key={item}>
+            <span className="mt-2 size-1.5 rounded-full bg-[#70dfa9]" aria-hidden="true" />
             <span>{item}</span>
           </li>
         ))}
@@ -40,6 +41,7 @@ function ReportList({ title, items }: { title: string; items: string[] }) {
 }
 
 export function AiMarketInsightPanel() {
+  const { intlLocale, t } = useI18n();
   const [payload, setPayload] = useState<DailyMarketInsightResponse | null>(null);
   const [status, setStatus] = useState<InsightStatus>("loading");
   const [error, setError] = useState("The daily insight could not be loaded.");
@@ -75,19 +77,19 @@ export function AiMarketInsightPanel() {
   const insight = payload?.insight;
 
   return (
-    <Card className="flex min-h-[300px] flex-col border-[#c7d7a0] bg-[#dcebb4] shadow-none xl:min-h-0">
+    <Card className="ai-insight-card flex min-h-[300px] flex-col border-[#c7d7a0] bg-[#dcebb4] shadow-none xl:min-h-0">
       <CardHeader className="flex-row items-start justify-between space-y-0 xl:py-4">
         <div className="flex items-center gap-2">
-          <Sparkles className="size-3.5 text-[#416652]" aria-hidden="true" />
-          <p className="text-[9px] font-extrabold tracking-[0.2em] text-[#55705e]">
-            AI MARKET INSIGHT
+          <Sparkles className="size-3.5 text-[#78cde2]" aria-hidden="true" />
+          <p className="text-[9px] font-extrabold tracking-[0.2em] text-[#93a1b1]">
+            {t("ai.eyebrow").toUpperCase()}
           </p>
         </div>
         <Badge
           variant="outline"
-          className="border-[#9fb87c] bg-white/35 text-[8px] tracking-[0.12em] text-[#55705e]"
+          className="border-[#3b4658] bg-white/5 text-[8px] tracking-[0.12em] text-[#a8b3c1]"
         >
-          DAILY
+          {t("ai.daily").toUpperCase()}
         </Badge>
       </CardHeader>
 
@@ -95,12 +97,12 @@ export function AiMarketInsightPanel() {
         {status === "loading" && (
           <div className="flex flex-1 flex-col justify-between gap-8 xl:gap-5" aria-live="polite">
             <div>
-              <LoaderCircle className="mb-5 size-5 animate-spin text-[#55705e]" />
+              <LoaderCircle className="mb-5 size-5 animate-spin text-[#78cde2]" />
               <CardTitle className="font-display text-[25px] font-medium leading-[1.15] tracking-[-0.03em]">
-                Loading today&apos;s macro read…
+                {t("ai.loading")}
               </CardTitle>
-              <p className="mt-3 text-xs leading-5 text-[#55705e]">
-                Published reports are loaded from the shared Redis cache.
+              <p className="mt-3 text-xs leading-5 text-[#a8b3c1]">
+                {t("ai.loadingHelp")}
               </p>
             </div>
           </div>
@@ -110,12 +112,12 @@ export function AiMarketInsightPanel() {
           <div className="flex flex-1 flex-col justify-between gap-8 xl:gap-5" role="status">
             <div>
               <CardTitle className="font-display text-[25px] font-medium leading-[1.15] tracking-[-0.03em]">
-                Daily insight is unavailable
+                {t("ai.unavailable")}
               </CardTitle>
-              <p className="mt-3 text-xs leading-5 text-[#6d5a45]">{error}</p>
+              <p className="mt-3 text-xs leading-5 text-[#ff9a9a]">{error}</p>
             </div>
-            <p className="text-[9px] leading-4 text-[#60726a]">
-              Check that Redis is running and that the daily scheduled task completed successfully.
+            <p className="text-[9px] leading-4 text-[#a8b3c1]">
+              {t("ai.errorHelp")}
             </p>
           </div>
         )}
@@ -127,8 +129,8 @@ export function AiMarketInsightPanel() {
                 <CardTitle className="font-display text-[25px] font-medium leading-[1.15] tracking-[-0.03em]">
                   {insight.brief}
                 </CardTitle>
-                <p className="mt-4 text-[9px] text-[#60726a]">
-                  Generated {formatGeneratedAt(insight.generatedAt)} · {payload.cache.status === "previous-day" ? "Previous daily report" : "Redis cache"}
+                <p className="mt-4 text-[9px] text-[#9ba7b6]">
+                  {t("ai.generated", { value: formatGeneratedAt(insight.generatedAt, intlLocale) })} · {payload.cache.status === "previous-day" ? t("ai.previous") : t("ai.redis")}
                 </p>
               </div>
               <Button
@@ -138,7 +140,7 @@ export function AiMarketInsightPanel() {
                 aria-expanded={expanded}
                 onClick={() => setExpanded((current) => !current)}
               >
-                {expanded ? "Hide detailed analysis" : "Read detailed analysis"}
+                {expanded ? t("ai.hide") : t("ai.show")}
                 <ChevronDown
                   className={`size-4 transition-transform ${expanded ? "rotate-180" : ""}`}
                   aria-hidden="true"
@@ -149,29 +151,29 @@ export function AiMarketInsightPanel() {
             {expanded && (
               <section
                 id="ai-market-insight-details"
-                className="mt-6 border-t border-[#b5c98b] pt-6 xl:mt-5 xl:pt-5"
+                className="mt-6 border-t border-[#30394a] pt-6 xl:mt-5 xl:pt-5"
               >
-                <p className="mb-3 text-[9px] font-extrabold tracking-[0.2em] text-[#55705e]">
-                  DETAILED ANALYSIS · {insight.reportDate}
+                <p className="mb-3 text-[9px] font-extrabold tracking-[0.2em] text-[#93a1b1]">
+                  {t("ai.details", { date: insight.reportDate }).toUpperCase()}
                 </p>
                 <h3 className="font-display text-3xl font-medium leading-tight tracking-[-0.03em]">
                   {insight.detailed.headline}
                 </h3>
-                <p className="pt-2 text-xs leading-5 text-[#60726a]">
-                  Generated once daily from the dashboard&apos;s latest available source readings.
+                <p className="pt-2 text-xs leading-5 text-[#9ba7b6]">
+                  {t("ai.generatedHelp")}
                 </p>
 
                 <div className="mt-6 space-y-8">
-                <p className="text-[15px] leading-7 text-[#26352f]">{insight.detailed.overview}</p>
-                <div className="grid gap-8 border-t border-[#b5c98b] pt-7 md:grid-cols-2">
-                  <ReportList title="Key signals" items={insight.detailed.keySignals} />
-                  <ReportList title="Risks" items={insight.detailed.risks} />
+                <p className="text-[15px] leading-7 text-[#d4dbe5]">{insight.detailed.overview}</p>
+                <div className="grid gap-8 border-t border-[#30394a] pt-7 md:grid-cols-2">
+                  <ReportList title={t("ai.keySignals")} items={insight.detailed.keySignals} />
+                  <ReportList title={t("ai.risks")} items={insight.detailed.risks} />
                 </div>
-                <div className="border-t border-[#b5c98b] pt-7">
-                  <ReportList title="What to watch next" items={insight.detailed.watchNext} />
+                <div className="border-t border-[#30394a] pt-7">
+                  <ReportList title={t("ai.watch")} items={insight.detailed.watchNext} />
                 </div>
-                <p className="border-t border-[#b5c98b] pt-5 text-[9px] leading-4 text-[#78857f]">
-                  AI-generated synthesis from retrieved dashboard data. Verify the underlying observations before relying on the analysis. This is not investment advice. Model: {insight.model}.
+                <p className="border-t border-[#30394a] pt-5 text-[9px] leading-4 text-[#8f9baa]">
+                  {t("ai.disclaimer", { model: insight.model })}
                 </p>
               </div>
               </section>

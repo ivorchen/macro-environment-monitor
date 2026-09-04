@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { IndicatorApiResponse, IndicatorReading } from "@/lib/data/types";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 function freshnessClasses(reading: IndicatorReading) {
   if (reading.freshness === "fresh") return "border-[#a9c6b8] bg-[#e4efe8] text-[#155b43]";
@@ -23,16 +24,9 @@ function freshnessClasses(reading: IndicatorReading) {
   return "border-[#e3beb7] bg-[#f6e7e3] text-[#9a463c]";
 }
 
-function freshnessLabel(reading: IndicatorReading) {
-  if (reading.errorCode === "configuration-required") return "Key required";
-  if (reading.freshness === "fresh") return "Fresh";
-  if (reading.freshness === "stale") return "Stale";
-  return "Unavailable";
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "No observation";
-  return new Intl.DateTimeFormat("en-US", {
+function formatDate(value: string | null, locale: string, noObservation: string) {
+  if (!value) return noObservation;
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -47,6 +41,7 @@ function credentialLabel(reading: IndicatorReading) {
 }
 
 export function SourceStatusPanel() {
+  const { intlLocale, t } = useI18n();
   const [payload, setPayload] = useState<IndicatorApiResponse | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
@@ -87,8 +82,8 @@ export function SourceStatusPanel() {
     <section className="mb-8" aria-labelledby="authoritative-snapshot-title">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">ATTRIBUTED SOURCE PIPELINE</p>
-          <h3 id="authoritative-snapshot-title" className="font-display text-3xl">Latest source readings</h3>
+          <p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">{t("source.eyebrow").toUpperCase()}</p>
+          <h3 id="authoritative-snapshot-title" className="font-display text-3xl">{t("source.title")}</h3>
         </div>
         <div className="flex items-center gap-2">
           {payload && (
@@ -99,12 +94,12 @@ export function SourceStatusPanel() {
           <Button
             variant="outline"
             size="sm"
-            className="rounded-full bg-[#fbfaf6] text-xs"
+            className="rounded-full border-border bg-card text-xs text-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() => void refresh()}
             disabled={status === "loading"}
           >
             <RefreshCw className={cn("size-3.5", status === "loading" && "animate-spin")} />
-            Refresh
+            {t("common.refresh")}
           </Button>
         </div>
       </div>
@@ -115,11 +110,11 @@ export function SourceStatusPanel() {
             <div className="flex gap-3 text-[#813d35]">
               <AlertTriangle className="mt-0.5 size-5 shrink-0" />
               <div>
-                <p className="text-sm font-semibold">The indicator service could not be reached.</p>
-                <p className="mt-1 text-xs opacity-75">Manual scores remain available. Retry when the source connection recovers.</p>
+                <p className="text-sm font-semibold">{t("source.error")}</p>
+                <p className="mt-1 text-xs opacity-75">{t("source.errorHelp")}</p>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => void refresh()}>Try again</Button>
+            <Button variant="outline" size="sm" onClick={() => void refresh()}>{t("common.tryAgain")}</Button>
           </CardContent>
         </Card>
       )}
@@ -147,7 +142,7 @@ export function SourceStatusPanel() {
                     <CardTitle className="mt-1.5 text-sm font-semibold">{reading.indicator}</CardTitle>
                   </div>
                   <Badge className={cn("border text-[8px] shadow-none", freshnessClasses(reading))}>
-                    {freshnessLabel(reading)}
+                    {reading.errorCode === "configuration-required" ? t("source.keyRequired") : reading.freshness === "fresh" ? t("common.fresh") : reading.freshness === "stale" ? t("common.stale") : t("common.unavailable")}
                   </Badge>
                 </div>
               </CardHeader>
@@ -161,7 +156,7 @@ export function SourceStatusPanel() {
                 <div className="mt-4 flex items-center justify-between gap-2 border-t border-[#e1e3df] pt-3 text-[9px] text-[#74817b]">
                   <span className="flex items-center gap-1.5">
                     {reading.freshness === "fresh" ? <CheckCircle2 className="size-3" /> : reading.freshness === "stale" ? <Clock3 className="size-3" /> : <Server className="size-3" />}
-                    {reading.errorCode === "configuration-required" ? credentialLabel(reading) : formatDate(reading.observationDate)}
+                    {reading.errorCode === "configuration-required" ? credentialLabel(reading) : formatDate(reading.observationDate, intlLocale, t("common.noObservation"))}
                   </span>
                   <a
                     href={reading.sourceUrl}
@@ -170,7 +165,7 @@ export function SourceStatusPanel() {
                     className="inline-flex items-center gap-1 font-semibold text-[#175f47] hover:underline"
                     aria-label={`Open source for ${reading.indicator}`}
                   >
-                    Source <ExternalLink className="size-3" />
+                    {t("common.source")} <ExternalLink className="size-3" />
                   </a>
                 </div>
               </CardContent>
@@ -180,12 +175,12 @@ export function SourceStatusPanel() {
       )}
 
       <p className="mt-3 text-[10px] leading-4 text-[#74817b]">
-        Observation dates and retrieval freshness are shown separately. Optional BEA and Census indicators appear only when their server-side API keys are configured; a missing FRED key remains explicit. Nasdaq daily ETF prices supply the relative-strength indicators without consuming the FMP allowance. The Polymarket reading is a market-implied distribution, not an official Federal Reserve forecast. Manual scoring remains independent of source availability.
+        {t("source.footer")}
         {payload && (
           <span className="ml-1">
             {payload.cache.backend === "redis"
-              ? `Redis cache: ${payload.cache.hits.length} provider hit${payload.cache.hits.length === 1 ? "" : "s"}, ${payload.cache.misses.length} refreshed.`
-              : "Redis cache is not configured; readings are fetched directly."}
+              ? t("source.redis", { hits: payload.cache.hits.length, misses: payload.cache.misses.length })
+              : t("source.noRedis")}
           </span>
         )}
       </p>

@@ -16,6 +16,7 @@ import {
   Landmark,
   LayoutDashboard,
   NotebookPen,
+  PieChart,
   Plus,
   RotateCcw,
   Save,
@@ -30,6 +31,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Label } from "@/components/ui/label";
 import { MarketSnapshotPanel } from "@/components/market-snapshot-panel";
 import { NfciYtdChart } from "@/components/nfci-ytd-chart";
@@ -42,19 +45,19 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { SourceStatusPanel } from "@/components/source-status-panel";
 import { SenateTradesPanel } from "@/components/senate-trades-panel";
 import { SenateWeeklySummary } from "@/components/senate-weekly-summary";
+import { SectorViewPanel } from "@/components/sector-view-panel";
 import { WeeklyHistoryPanel } from "@/components/weekly-history-panel";
+import { XWhatsNewPanel } from "@/components/x-whats-new-panel";
 import { sourceForIndicator } from "@/lib/data/source-registry";
 import type { IndicatorApiResponse } from "@/lib/data/types";
 import type { NfciYtdResponse } from "@/lib/data/nfci";
 import type { SenateTradesResponse } from "@/lib/data/senate-trades";
 import {
   INITIAL_PILLARS,
-  regimeFromScore,
-  scoreLabel,
-  totalScore,
   type Pillar,
   type Score,
 } from "@/lib/macro";
+import { applyRiskScoreToPillars, type RiskScoreResponse, type RiskZone } from "@/lib/risk-score";
 import {
   REVIEW_HISTORY_STORAGE_KEY,
   createWeeklyReviewSnapshot,
@@ -67,6 +70,7 @@ import {
   type WeeklyReviewSnapshot,
 } from "@/lib/review-history";
 import { cn } from "@/lib/utils";
+import { useI18n, type MessageKey } from "@/lib/i18n";
 
 const releaseCalendar = [
   { day: "20", month: "AUG", event: "FOMC minutes", importance: "High" },
@@ -122,7 +126,7 @@ function scoreClasses(score: Score) {
 }
 
 function regimePanelTheme(score: number) {
-  if (score >= 9) {
+  if (score >= 81) {
     return {
       background: "#124f3d",
       accent: "#d7f28d",
@@ -130,35 +134,43 @@ function regimePanelTheme(score: number) {
       shadow: "rgba(18, 79, 61, 0.24)",
     };
   }
-  if (score >= 3) {
+  if (score >= 61) {
     return {
-      background: "#a85422",
-      accent: "#ffd37a",
-      glow: "rgba(255, 211, 122, 0.17)",
-      shadow: "rgba(168, 84, 34, 0.25)",
+      background: "#162b2a",
+      accent: "#3dd6a0",
+      glow: "rgba(61, 214, 160, 0.17)",
+      shadow: "rgba(0, 0, 0, 0.28)",
     };
   }
-  if (score >= -2) {
+  if (score >= 41) {
     return {
-      background: "#9a472d",
-      accent: "#ffd0a2",
-      glow: "rgba(255, 208, 162, 0.16)",
-      shadow: "rgba(154, 71, 45, 0.25)",
+      background: "#1b2230",
+      accent: "#59bdd6",
+      glow: "rgba(89, 189, 214, 0.16)",
+      shadow: "rgba(0, 0, 0, 0.28)",
     };
   }
-  if (score >= -8) {
+  if (score >= 21) {
     return {
-      background: "#853129",
-      accent: "#ffc09d",
-      glow: "rgba(255, 192, 157, 0.16)",
-      shadow: "rgba(133, 49, 41, 0.27)",
+      background: "#30231c",
+      accent: "#f2c14e",
+      glow: "rgba(242, 193, 78, 0.16)",
+      shadow: "rgba(0, 0, 0, 0.28)",
     };
   }
   return {
-    background: "#5d1b24",
-    accent: "#ffb1a5",
+    background: "#311d24",
+    accent: "#ff7777",
     glow: "rgba(255, 177, 165, 0.16)",
     shadow: "rgba(93, 27, 36, 0.3)",
+  };
+}
+
+function zoneCopy(zone: RiskScoreResponse["zone"]): { label: MessageKey; posture: MessageKey } {
+  const safeZone: RiskZone = zone === "unavailable" ? "mixed" : zone;
+  return {
+    label: `risk.zone.${safeZone}` as MessageKey,
+    posture: `risk.posture.${safeZone}` as MessageKey,
   };
 }
 
@@ -169,7 +181,9 @@ function TrendIcon({ trend }: { trend: Pillar["trend"] }) {
 }
 
 export function MacroDashboard() {
+  const { t } = useI18n();
   const [pillars, setPillars] = useState(INITIAL_PILLARS);
+  const [riskScore, setRiskScore] = useState<RiskScoreResponse | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [observations, setObservations] = useState([
     "Real yields eased from the monthly high, reducing pressure on long-duration equities.",
@@ -185,7 +199,6 @@ export function MacroDashboard() {
 
   useEffect(() => {
     let storedState: {
-      pillars?: Pillar[];
       observations?: string[];
       review?: ReviewState;
       completedChecks?: string[];
@@ -201,7 +214,6 @@ export function MacroDashboard() {
       // Keep the safe defaults if browser storage is unavailable or invalid.
     }
     const hydrationTimer = window.setTimeout(() => {
-      if (storedState?.pillars?.length === INITIAL_PILLARS.length) setPillars(storedState.pillars);
       if (storedState?.observations) setObservations(storedState.observations);
       if (storedState?.review) setReview(storedState.review);
       if (storedState?.completedChecks) setCompletedChecks(storedState.completedChecks);
@@ -215,20 +227,38 @@ export function MacroDashboard() {
     if (!hydrated) return;
     window.localStorage.setItem(
       "macro-monitor-state-v1",
-      JSON.stringify({ pillars, observations, review, completedChecks }),
+      JSON.stringify({ observations, review, completedChecks }),
     );
-  }, [completedChecks, hydrated, observations, pillars, review]);
+  }, [completedChecks, hydrated, observations, review]);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const response = await fetch("/api/risk-score", { cache: "no-store" });
+        if (!response.ok) return;
+        const payload = await response.json() as RiskScoreResponse;
+        if (!active) return;
+        setRiskScore(payload);
+        setPillars(applyRiskScoreToPillars(INITIAL_PILLARS, payload.components));
+      } catch {
+        // Keep the neutral unavailable state when the live scoring route is offline.
+      }
+    };
+    void load();
+    const interval = window.setInterval(() => { if (document.visibilityState === "visible") void load(); }, 15 * 60 * 1_000);
+    return () => { active = false; window.clearInterval(interval); };
+  }, []);
 
   useEffect(() => {
     if (!hydrated) return;
     window.localStorage.setItem(REVIEW_HISTORY_STORAGE_KEY, JSON.stringify(reviewHistory));
   }, [hydrated, reviewHistory]);
 
-  const total = useMemo(() => totalScore(pillars), [pillars]);
-  const regime = useMemo(() => regimeFromScore(total), [total]);
+  const total = riskScore?.score ?? 50;
+  const regimeCopy = useMemo(() => zoneCopy(riskScore?.zone ?? "unavailable"), [riskScore?.zone]);
+  const regime = useMemo(() => ({ label: t(regimeCopy.label), posture: t(regimeCopy.posture) }), [regimeCopy, t]);
   const regimeTheme = useMemo(() => regimePanelTheme(total), [total]);
-  const supportive = pillars.filter((pillar) => pillar.score > 0);
-  const pressures = pillars.filter((pillar) => pillar.score < 0);
   const completion = Math.round((completedChecks.length / dailyChecks.length) * 100);
 
   function addObservation() {
@@ -240,7 +270,6 @@ export function MacroDashboard() {
   }
 
   function resetWorkspace() {
-    setPillars(INITIAL_PILLARS);
     setObservations([
       "Real yields eased from the monthly high, reducing pressure on long-duration equities.",
       "Credit remained calm while the S&P 500 advanced.",
@@ -251,6 +280,9 @@ export function MacroDashboard() {
   }
 
   async function saveWeeklyReview(reviewDate: string, hypothesis: HypothesisDraft) {
+    if (!riskScore || riskScore.score === null) {
+      return "The live macro risk score is unavailable. Refresh the source data before saving a review.";
+    }
     if (reviewHistory.some((savedReview) => savedReview.reviewDate === reviewDate)) {
       return "A review already exists for this date. Historical evidence is immutable; choose a new date.";
     }
@@ -328,22 +360,23 @@ export function MacroDashboard() {
 
   return (
     <TooltipProvider>
-      <main className="min-h-screen bg-[#f3f2ec] text-[#17231f]">
+      <main className="macro-shell min-h-screen bg-[#0e1014] text-[#f3f5f7]">
         <aside className="fixed inset-x-0 bottom-0 z-50 flex h-[68px] items-center border-t border-white/10 bg-[#102b24] px-4 text-white md:inset-y-0 md:left-0 md:right-auto md:h-auto md:w-[76px] md:flex-col md:border-r md:border-t-0 md:px-0 md:py-5">
           <button
             className="grid size-10 place-items-center rounded-full bg-[#cce77e] font-display text-lg font-bold text-[#102b24]"
             onClick={() => setActiveTab("overview")}
-            aria-label="Macro monitor home"
+            aria-label={t("nav.home")}
           >
             M
           </button>
-          <nav className="mx-auto flex gap-2 md:mt-16 md:grid" aria-label="Primary navigation">
+          <nav className="mx-auto flex gap-2 md:mt-16 md:grid" aria-label={t("nav.primary")}>
             {[
-              { value: "overview", label: "Overview", icon: LayoutDashboard },
-              { value: "indicators", label: "Indicators", icon: BarChart3 },
-              { value: "review", label: "Weekly review", icon: BookOpenCheck },
-              { value: "journal", label: "Decision journal", icon: History },
-              { value: "senate", label: "Senate trades", icon: Landmark },
+              { value: "overview", label: t("nav.overview"), icon: LayoutDashboard },
+              { value: "indicators", label: t("nav.indicators"), icon: BarChart3 },
+              { value: "sectors", label: t("nav.sectors"), icon: PieChart },
+              { value: "review", label: t("nav.review"), icon: BookOpenCheck },
+              { value: "journal", label: t("nav.journal"), icon: History },
+              { value: "senate", label: t("nav.senate"), icon: Landmark },
             ].map((item) => (
               <Tooltip key={item.value}>
                 <TooltipTrigger asChild>
@@ -364,39 +397,42 @@ export function MacroDashboard() {
           </nav>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="grid size-10 place-items-center rounded-full border border-white/25 text-[11px] font-bold md:mt-auto" aria-label="Profile">
+              <button className="grid size-10 place-items-center rounded-full border border-white/25 text-[11px] font-bold md:mt-auto" aria-label={t("nav.profile")}>
                 IC
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Local research workspace</TooltipContent>
+            <TooltipContent side="right">{t("nav.workspace")}</TooltipContent>
           </Tooltip>
         </aside>
 
         <div className="pb-24 md:ml-[76px] md:pb-10">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <header className="sticky top-0 z-40 border-b border-[#d9ddd7]/90 bg-[#f3f2ec]/90 px-4 py-4 backdrop-blur-xl sm:px-7 lg:px-12">
+            <header className="sticky top-0 z-40 border-b border-[#252c38] bg-[#0e1014]/90 px-4 py-4 backdrop-blur-xl sm:px-7 lg:px-12">
               <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4">
                 <div>
-                  <p className="mb-1 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">MACRO ENVIRONMENT MONITOR</p>
+                  <p className="mb-1 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">{t("header.product").toUpperCase()}</p>
                   <div className="flex items-center gap-2">
-                    <h1 className="font-display text-xl font-medium tracking-tight sm:text-2xl">U.S. equity regime</h1>
-                    <Badge variant="outline" className="hidden border-[#cad0ca] bg-white/55 text-[9px] tracking-[0.12em] text-[#617069] sm:inline-flex">
-                      MANUAL MODE
+                    <h1 className="font-display text-xl font-medium tracking-tight sm:text-2xl">{t("header.regime")}</h1>
+                    <Badge variant="outline" className="hidden border-[#30394a] bg-[#151922] text-[9px] tracking-[0.12em] text-[#59bdd6] sm:inline-flex">
+                      {t("header.automatic").toUpperCase()}
                     </Badge>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <TabsList className="hidden h-10 rounded-full border border-[#d6dcd5] bg-[#faf9f5] p-1 lg:flex">
-                    <TabsTrigger value="overview" className="rounded-full px-4 text-xs">Overview</TabsTrigger>
-                    <TabsTrigger value="indicators" className="rounded-full px-4 text-xs">Indicators</TabsTrigger>
-                    <TabsTrigger value="review" className="rounded-full px-4 text-xs">Review</TabsTrigger>
-                    <TabsTrigger value="journal" className="rounded-full px-4 text-xs">Journal</TabsTrigger>
-                    <TabsTrigger value="senate" className="rounded-full px-4 text-xs">Senate</TabsTrigger>
+                  <TabsList className="hidden h-10 rounded-full border border-[#30394a] bg-[#151922] p-1 lg:flex">
+                    <TabsTrigger value="overview" className="rounded-full px-4 text-xs">{t("nav.overview")}</TabsTrigger>
+                    <TabsTrigger value="indicators" className="rounded-full px-4 text-xs">{t("nav.indicators")}</TabsTrigger>
+                    <TabsTrigger value="sectors" className="rounded-full px-4 text-xs">{t("nav.sectors")}</TabsTrigger>
+                    <TabsTrigger value="review" className="rounded-full px-4 text-xs">{t("header.review")}</TabsTrigger>
+                    <TabsTrigger value="journal" className="rounded-full px-4 text-xs">{t("nav.journal")}</TabsTrigger>
+                    <TabsTrigger value="senate" className="rounded-full px-4 text-xs">{t("nav.senate")}</TabsTrigger>
                   </TabsList>
+                  <ThemeSwitcher />
+                  <LanguageSwitcher />
                   <Button className="rounded-full bg-[#175f47] px-4 text-xs text-white hover:bg-[#104b38]" onClick={() => setActiveTab("review")}>
                     <NotebookPen className="size-4" />
-                    <span className="hidden sm:inline">Start weekly review</span>
-                    <span className="sm:hidden">Review</span>
+                    <span className="hidden sm:inline">{t("header.startReview")}</span>
+                    <span className="sm:hidden">{t("header.review")}</span>
                   </Button>
                 </div>
               </div>
@@ -406,22 +442,22 @@ export function MacroDashboard() {
               <div className="mx-auto max-w-[1500px] px-4 py-7 sm:px-7 lg:px-12 lg:py-10">
                 <div className="mb-7 flex flex-wrap items-end justify-between gap-3">
                   <div>
-                    <p className="mb-2 text-[10px] font-extrabold tracking-[0.18em] text-[#6f7d78]">WEEK 34 · SAMPLE WORKSPACE</p>
-                    <h2 className="font-display text-4xl font-medium tracking-[-0.04em] sm:text-5xl">Good evening, Ivor.</h2>
+                    <p className="mb-2 text-[10px] font-extrabold tracking-[0.18em] text-[#6f7d78]">{t("overview.week").toUpperCase()}</p>
+                    <h2 className="font-display text-4xl font-medium tracking-[-0.04em] sm:text-5xl">{t("overview.greeting")}</h2>
                   </div>
-                  <p className="max-w-md text-xs leading-5 text-[#6f7d78]">Score the direction and interaction of multiple signals. No single indicator determines the regime.</p>
+                  <p className="max-w-md text-xs leading-5 text-[#6f7d78]">{t("overview.guidance")}</p>
                 </div>
 
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(310px,.7fr)]">
                   <Card
-                    className="grid-bg overflow-hidden border-0 text-white transition-[background-color,box-shadow] duration-500 xl:col-span-2"
+                    className="regime-card grid-bg overflow-hidden border border-[#30394a] text-white transition-[background-color,box-shadow] duration-500 xl:col-span-2"
                     style={{
                       backgroundColor: regimeTheme.background,
                       boxShadow: `0 24px 70px ${regimeTheme.shadow}`,
                     }}
                   >
                     <CardHeader className="flex-row items-center justify-between space-y-0 pb-0">
-                      <p className="text-[9px] font-extrabold tracking-[0.2em] text-white/55">CURRENT REGIME</p>
+                      <p className="text-[9px] font-extrabold tracking-[0.2em] text-white/55">{t("overview.currentRegime").toUpperCase()}</p>
                       <span className="flex items-center gap-2 text-[9px] font-extrabold tracking-[0.16em] text-white/55">
                         <i
                           className="size-2 rounded-full transition-colors duration-500"
@@ -429,7 +465,7 @@ export function MacroDashboard() {
                             backgroundColor: regimeTheme.accent,
                             boxShadow: `0 0 0 5px ${regimeTheme.glow}`,
                           }}
-                        /> WORKING VIEW
+                        /> {t("overview.workingView").toUpperCase()}
                       </span>
                     </CardHeader>
                     <CardContent className="pt-8">
@@ -439,34 +475,33 @@ export function MacroDashboard() {
                             className="mb-2 text-xs font-extrabold tracking-[0.1em] transition-colors duration-500"
                             style={{ color: regimeTheme.accent }}
                           >
-                            {regime.label.toUpperCase()}
+                            {riskScore ? regime.label.toUpperCase() : t("common.loading").toUpperCase()}
                           </p>
                           <p className="font-display text-[88px] leading-[.82] tracking-[-0.08em] sm:text-[112px]">
-                            {total > 0 ? "+" : ""}{total}<span className="ml-2 font-sans text-base tracking-normal text-white/45">/ 18</span>
+                            {riskScore?.score ?? "—"}<span className="ml-2 font-sans text-base tracking-normal text-white/45">/ 100</span>
                           </p>
                         </div>
                         <div className="border-t border-white/20 pt-6 md:border-l md:border-t-0 md:pl-8 md:pt-0">
-                          <p className="font-display text-2xl leading-tight">{regime.posture}, with explicit invalidation signals.</p>
+                          <p className="font-display text-2xl leading-tight">{regime.posture}</p>
                           <p className="mt-3 text-xs leading-5 text-white/65">
-                            {supportive.slice(0, 2).map((item) => item.area).join(" and ")} provide support
-                            {pressures.length ? `, while ${pressures.map((item) => item.area.toLowerCase()).join(" and ")} constrain conviction.` : "."}
+                            {riskScore ? t("risk.coverage", { coverage: riskScore.coverage, version: riskScore.methodologyVersion }) : t("risk.loading")}
                           </p>
                         </div>
                       </div>
                       <div className="mt-9 grid grid-cols-[auto_1fr_auto] items-center gap-3 text-[8px] font-bold tracking-[0.16em] text-white/45">
-                        <span>HOSTILE</span>
+                        <span>{t("overview.hostile").toUpperCase()}</span>
                         <div className="relative h-px bg-white/20">
                           <i
                             className="absolute top-1/2 size-2.5 -translate-y-1/2 rounded-full border-2 outline outline-1 transition-[background-color,border-color,outline-color,left] duration-500"
                             style={{
-                              left: `${((total + 18) / 36) * 100}%`,
+                              left: `${total}%`,
                               backgroundColor: regimeTheme.accent,
                               borderColor: regimeTheme.background,
                               outlineColor: regimeTheme.accent,
                             }}
                           />
                         </div>
-                        <span>SUPPORTIVE</span>
+                        <span>{t("overview.supportive").toUpperCase()}</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -478,11 +513,11 @@ export function MacroDashboard() {
                   <Card className="border-[#d9ddd7] bg-[#fbfaf6] shadow-none">
                     <CardHeader className="flex-row items-end justify-between space-y-0">
                       <div>
-                        <p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">9 PILLARS · READ-ONLY STATUS</p>
-                        <CardTitle className="font-display text-3xl font-medium tracking-tight">Weekly scorecard</CardTitle>
+                        <p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">{t("overview.pillars").toUpperCase()}</p>
+                        <CardTitle className="font-display text-3xl font-medium tracking-tight">{t("overview.scorecard")}</CardTitle>
                       </div>
                       <Button variant="ghost" size="sm" className="text-xs text-[#175f47]" onClick={() => setActiveTab("indicators")}>
-                        All indicators <ChevronRight className="size-4" />
+                        {t("overview.allIndicators")} <ChevronRight className="size-4" />
                       </Button>
                     </CardHeader>
                     <CardContent>
@@ -491,7 +526,7 @@ export function MacroDashboard() {
                           <div className="grid min-h-[64px] grid-cols-[10px_minmax(90px,1fr)_minmax(150px,auto)] items-center gap-3 py-2 sm:grid-cols-[10px_minmax(120px,1fr)_150px_120px]" key={pillar.id}>
                             <span className={cn("size-2 rounded-full", scoreTone(pillar.score) === "positive" ? "bg-[#1d6c50]" : scoreTone(pillar.score) === "negative" ? "bg-[#ae5548]" : "bg-[#b78334]")} />
                             <div>
-                              <p className="mb-0 text-sm font-semibold">{pillar.area}</p>
+                              <p className="mb-0 text-sm font-semibold">{t(`pillar.${pillar.id}` as MessageKey)}</p>
                               <p className="mb-0 mt-0.5 hidden text-[10px] text-[#78857f] md:block">{pillar.change}</p>
                             </div>
                             <Badge
@@ -500,12 +535,12 @@ export function MacroDashboard() {
                                 "h-9 w-full justify-center rounded-full px-3 text-xs font-bold shadow-none",
                                 scoreClasses(pillar.score),
                               )}
-                              aria-label={`${pillar.area} status: ${scoreLabel(pillar.score)}`}
+                              aria-label={`${t(`pillar.${pillar.id}` as MessageKey)}: ${t(pillar.score === 2 ? "score.strongPositive" : pillar.score === 1 ? "score.positive" : pillar.score === 0 ? "score.neutral" : pillar.score === -1 ? "score.negative" : "score.strongNegative")}`}
                             >
-                              {scoreLabel(pillar.score)}
+                              {t(pillar.score === 2 ? "score.strongPositive" : pillar.score === 1 ? "score.positive" : pillar.score === 0 ? "score.neutral" : pillar.score === -1 ? "score.negative" : "score.strongNegative")}
                             </Badge>
                             <div className="hidden items-center justify-end gap-2 text-[10px] text-[#6f7d78] sm:flex">
-                              {pillar.trend}<TrendIcon trend={pillar.trend} />
+                              {t(`trend.${pillar.trend}` as MessageKey)}<TrendIcon trend={pillar.trend} />
                             </div>
                           </div>
                         ))}
@@ -516,8 +551,8 @@ export function MacroDashboard() {
                   <Card className="border-[#d9ddd7] bg-[#fbfaf6] shadow-none">
                     <CardHeader className="flex-row items-end justify-between space-y-0">
                       <div>
-                        <p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">WEEKLY DELTA</p>
-                        <CardTitle className="font-display text-3xl font-medium tracking-tight">What changed</CardTitle>
+                        <p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">{t("overview.weeklyDelta").toUpperCase()}</p>
+                        <CardTitle className="font-display text-3xl font-medium tracking-tight">{t("overview.whatChanged")}</CardTitle>
                       </div>
                       <Badge variant="secondary" className="rounded-md font-mono text-[9px]">W34</Badge>
                     </CardHeader>
@@ -533,21 +568,21 @@ export function MacroDashboard() {
                       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                         <DialogTrigger asChild>
                           <Button variant="outline" className="mt-3 w-full rounded-full border-[#a9c6b8] bg-transparent text-xs font-bold text-[#175f47] hover:bg-[#e5efe8]">
-                            <Plus className="size-4" /> Add observation
+                            <Plus className="size-4" /> {t("overview.addObservation")}
                           </Button>
                         </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
-                            <DialogTitle className="font-display text-2xl">Add this week’s change</DialogTitle>
-                            <DialogDescription>Record the signal, its direction, and why it matters for U.S. equities.</DialogDescription>
+                            <DialogTitle className="font-display text-2xl">{t("overview.addChange")}</DialogTitle>
+                            <DialogDescription>{t("overview.addChangeHelp")}</DialogDescription>
                           </DialogHeader>
                           <div className="grid gap-2">
-                            <Label htmlFor="observation">Observation</Label>
-                            <Textarea id="observation" value={draftObservation} onChange={(event) => setDraftObservation(event.target.value)} placeholder="Example: High-yield spreads widened while the index made a new high…" />
+                            <Label htmlFor="observation">{t("overview.observation")}</Label>
+                            <Textarea id="observation" value={draftObservation} onChange={(event) => setDraftObservation(event.target.value)} placeholder={t("overview.observationPlaceholder")} />
                           </div>
                           <DialogFooter>
-                            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                            <Button className="bg-[#175f47] hover:bg-[#104b38]" onClick={addObservation}>Save observation</Button>
+                            <Button variant="outline" onClick={() => setDialogOpen(false)}>{t("common.cancel")}</Button>
+                            <Button className="bg-[#175f47] hover:bg-[#104b38]" onClick={addObservation}>{t("overview.saveObservation")}</Button>
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
@@ -555,8 +590,30 @@ export function MacroDashboard() {
                   </Card>
                 </div>
 
+                {riskScore && (
+                  <section className="mt-4 grid gap-px overflow-hidden rounded-xl border border-[#293141] bg-[#293141] md:grid-cols-3 xl:grid-cols-6">
+                    {riskScore.components.map((component) => (
+                      <div className="bg-[#151922] p-4" key={component.id}>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-[9px] font-bold tracking-[.14em] text-[#7f8a99]">{t(`pillar.${component.id}` as MessageKey).toUpperCase()}</p>
+                          <span className="text-lg font-semibold text-[#eef2f6]">{component.score ?? "—"}</span>
+                        </div>
+                        <div className="mt-3 h-1 overflow-hidden rounded-full bg-[#262d3a]"><div className="h-full bg-[#59bdd6]" style={{ width: `${component.score ?? 0}%` }} /></div>
+                        <p className="mt-3 text-[9px] leading-4 text-[#7f8a99]">{component.inputsUsed}/{component.inputsExpected} {t("risk.inputs")}</p>
+                      </div>
+                    ))}
+                  </section>
+                )}
+
                 <NfciYtdChart />
                 <MarketSnapshotPanel />
+                <XWhatsNewPanel />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="sectors" className="m-0 focus-visible:outline-none">
+              <div className="mx-auto max-w-[1500px] px-4 py-8 sm:px-7 lg:px-12 lg:py-10">
+                <SectorViewPanel />
               </div>
             </TabsContent>
 
@@ -564,12 +621,12 @@ export function MacroDashboard() {
               <div className="mx-auto max-w-[1500px] px-4 py-8 sm:px-7 lg:px-12 lg:py-10">
                 <div className="mb-8 grid gap-5 lg:grid-cols-[1fr_390px] lg:items-end">
                   <div>
-                    <p className="mb-2 text-[10px] font-extrabold tracking-[0.2em] text-[#6f7d78]">SIGNAL LIBRARY</p>
-                    <h2 className="font-display text-4xl tracking-[-0.04em] sm:text-5xl">Indicators by pillar</h2>
-                    <p className="mt-3 max-w-2xl text-sm leading-6 text-[#66746e]">Use primary data, score the direction rather than the absolute level, and record the mechanism connecting each signal to equities.</p>
+                    <p className="mb-2 text-[10px] font-extrabold tracking-[0.2em] text-[#6f7d78]">{t("indicators.eyebrow").toUpperCase()}</p>
+                    <h2 className="font-display text-4xl tracking-[-0.04em] sm:text-5xl">{t("indicators.title")}</h2>
+                    <p className="mt-3 max-w-2xl text-sm leading-6 text-[#66746e]">{t("indicators.description")}</p>
                   </div>
                   <Card className="border-[#c8d6a7] bg-[#dfeabf] shadow-none">
-                    <CardContent className="flex gap-3 p-4 text-xs leading-5 text-[#385346]"><ShieldCheck className="mt-0.5 size-5 shrink-0" /><p className="mb-0"><strong>Research discipline:</strong> verify hypotheses with the Federal Reserve, Treasury, BLS, BEA, Census, SEC filings, and company transcripts.</p></CardContent>
+                    <CardContent className="flex gap-3 p-4 text-xs leading-5 text-[#385346]"><ShieldCheck className="mt-0.5 size-5 shrink-0" /><p className="mb-0"><strong>{t("indicators.discipline")}</strong> {t("indicators.disciplineText")}</p></CardContent>
                   </Card>
                 </div>
                 <SourceStatusPanel />
@@ -579,9 +636,9 @@ export function MacroDashboard() {
                       <CardHeader>
                         <div className="flex items-center justify-between">
                           <span className="font-mono text-[9px] font-bold text-[#78857f]">{String(index + 1).padStart(2, "0")}</span>
-                          <div className="flex gap-1.5"><Badge variant="outline" className="text-[9px]">{pillar.priority}</Badge><Badge className={cn("border text-[9px] shadow-none", scoreClasses(pillar.score))}>{pillar.score > 0 ? "+" : ""}{pillar.score}</Badge></div>
+                          <div className="flex gap-1.5"><Badge variant="outline" className="text-[9px]">{t(`priority.${pillar.priority}` as MessageKey)}</Badge><Badge className={cn("border text-[9px] shadow-none", scoreClasses(pillar.score))}>{pillar.score > 0 ? "+" : ""}{pillar.score}</Badge></div>
                         </div>
-                        <CardTitle className="font-display text-3xl font-medium">{pillar.area}</CardTitle>
+                        <CardTitle className="font-display text-3xl font-medium">{t(`pillar.${pillar.id}` as MessageKey)}</CardTitle>
                         <CardDescription className="min-h-10 text-xs leading-5">{pillar.question}</CardDescription>
                       </CardHeader>
                       <CardContent>
@@ -597,7 +654,7 @@ export function MacroDashboard() {
                           })}
                         </div>
                         <Separator className="my-5" />
-                        <div className="flex items-center justify-between text-[10px] text-[#6f7d78]"><span>Current trend</span><span className="flex items-center gap-1.5 font-semibold text-[#33453e]">{pillar.trend}<TrendIcon trend={pillar.trend} /></span></div>
+                        <div className="flex items-center justify-between text-[10px] text-[#6f7d78]"><span>{t("indicators.currentTrend")}</span><span className="flex items-center gap-1.5 font-semibold text-[#33453e]">{t(`trend.${pillar.trend}` as MessageKey)}<TrendIcon trend={pillar.trend} /></span></div>
                       </CardContent>
                     </Card>
                   ))}
@@ -609,13 +666,13 @@ export function MacroDashboard() {
               <div className="mx-auto max-w-[1500px] px-4 py-8 sm:px-7 lg:px-12 lg:py-10">
                 <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
                   <div>
-                    <p className="mb-2 text-[10px] font-extrabold tracking-[0.2em] text-[#6f7d78]">REPEATABLE PROCESS</p>
-                    <h2 className="font-display text-4xl tracking-[-0.04em] sm:text-5xl">Weekly macro review</h2>
-                    <p className="mt-3 text-sm text-[#66746e]">Your entries save automatically on this device.</p>
+                    <p className="mb-2 text-[10px] font-extrabold tracking-[0.2em] text-[#6f7d78]">{t("review.eyebrow").toUpperCase()}</p>
+                    <h2 className="font-display text-4xl tracking-[-0.04em] sm:text-5xl">{t("review.title")}</h2>
+                    <p className="mt-3 text-sm text-[#66746e]">{t("review.autosave")}</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" className="rounded-full" onClick={resetWorkspace}><RotateCcw className="size-4" /> Reset sample</Button>
-                    <Button className="rounded-full bg-[#175f47] hover:bg-[#104b38]" onClick={() => setActiveTab("journal")}><Save className="size-4" /> Open journal</Button>
+                    <Button variant="outline" className="rounded-full" onClick={resetWorkspace}><RotateCcw className="size-4" /> {t("review.reset")}</Button>
+                    <Button className="rounded-full bg-[#175f47] hover:bg-[#104b38]" onClick={() => setActiveTab("journal")}><Save className="size-4" /> {t("review.openJournal")}</Button>
                   </div>
                 </div>
 
@@ -624,13 +681,13 @@ export function MacroDashboard() {
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.75fr)]">
                   <Card className="border-[#d9ddd7] bg-[#fbfaf6] shadow-none">
                     <CardHeader>
-                      <div className="flex items-center gap-3"><div className="grid size-10 place-items-center rounded-xl bg-[#e1eadf] text-[#175f47]"><CircleGauge className="size-5" /></div><div><CardTitle className="font-display text-2xl">1. Define the regime</CardTitle><CardDescription>Classify the three drivers before interpreting the market.</CardDescription></div></div>
+                      <div className="flex items-center gap-3"><div className="grid size-10 place-items-center rounded-xl bg-[#e1eadf] text-[#175f47]"><CircleGauge className="size-5" /></div><div><CardTitle className="font-display text-2xl">{t("review.define")}</CardTitle><CardDescription>{t("review.defineHelp")}</CardDescription></div></div>
                     </CardHeader>
                     <CardContent className="grid gap-5 sm:grid-cols-3">
                       {[
-                        { key: "growth", label: "Growth", options: ["Accelerating", "Stable", "Slowing"] },
-                        { key: "inflation", label: "Inflation", options: ["Accelerating", "Stable", "Cooling"] },
-                        { key: "liquidity", label: "Liquidity", options: ["Expanding", "Neutral", "Contracting"] },
+                        { key: "growth", label: t("review.growth"), options: ["Accelerating", "Stable", "Slowing"] },
+                        { key: "inflation", label: t("review.inflation"), options: ["Accelerating", "Stable", "Cooling"] },
+                        { key: "liquidity", label: t("review.liquidity"), options: ["Expanding", "Neutral", "Contracting"] },
                       ].map((field) => (
                         <div className="grid gap-2" key={field.key}>
                           <Label>{field.label}</Label>
@@ -645,7 +702,7 @@ export function MacroDashboard() {
 
                   <Card className="border-[#c8d6a7] bg-[#dfeabf] shadow-none xl:row-span-2">
                     <CardHeader>
-                      <div className="flex items-center justify-between"><div><p className="mb-2 text-[9px] font-extrabold tracking-[0.18em] text-[#58705f]">DAILY 5-MINUTE CHECK</p><CardTitle className="font-display text-2xl">Market pulse</CardTitle></div><span className="font-mono text-xs font-bold">{completion}%</span></div>
+                      <div className="flex items-center justify-between"><div><p className="mb-2 text-[9px] font-extrabold tracking-[0.18em] text-[#58705f]">{t("review.dailyCheck").toUpperCase()}</p><CardTitle className="font-display text-2xl">{t("review.marketPulse")}</CardTitle></div><span className="font-mono text-xs font-bold">{completion}%</span></div>
                       <Progress value={completion} className="mt-2 h-1.5 bg-white/55" />
                     </CardHeader>
                     <CardContent className="space-y-2">
@@ -658,7 +715,7 @@ export function MacroDashboard() {
                               className={cn("mt-0.5 grid size-4 shrink-0 place-items-center rounded border", checked ? "border-[#175f47] bg-[#175f47] text-white" : "border-[#8ca293] bg-white/40")}
                               onClick={() => setCompletedChecks((current) => checked ? current.filter((value) => value !== item) : [...current, item])}
                               aria-pressed={checked}
-                              aria-label={`${checked ? "Uncheck" : "Check"} ${item}`}
+                              aria-label={t(checked ? "review.uncheck" : "review.check", { item })}
                             >
                               {checked && <Check className="size-3" />}
                             </button>
@@ -671,14 +728,14 @@ export function MacroDashboard() {
 
                   <Card className="border-[#d9ddd7] bg-[#fbfaf6] shadow-none">
                     <CardHeader>
-                      <div className="flex items-center gap-3"><div className="grid size-10 place-items-center rounded-xl bg-[#e1eadf] text-[#175f47]"><TrendingUp className="size-5" /></div><div><CardTitle className="font-display text-2xl">2. Portfolio implications</CardTitle><CardDescription>Write conditional actions, not unconditional forecasts.</CardDescription></div></div>
+                      <div className="flex items-center gap-3"><div className="grid size-10 place-items-center rounded-xl bg-[#e1eadf] text-[#175f47]"><TrendingUp className="size-5" /></div><div><CardTitle className="font-display text-2xl">{t("review.implications")}</CardTitle><CardDescription>{t("review.implicationsHelp")}</CardDescription></div></div>
                     </CardHeader>
                     <CardContent className="grid gap-5 md:grid-cols-2">
                       {[
-                        { key: "increaseExposure", label: "Increase exposure if" },
-                        { key: "reduceRisk", label: "Reduce risk if" },
-                        { key: "favoredSectors", label: "Sectors favored" },
-                        { key: "pressuredSectors", label: "Sectors under pressure" },
+                        { key: "increaseExposure", label: t("review.increaseExposure") },
+                        { key: "reduceRisk", label: t("review.reduceRisk") },
+                        { key: "favoredSectors", label: t("review.sectorsFavored") },
+                        { key: "pressuredSectors", label: t("review.sectorsPressure") },
                       ].map((field) => (
                         <div className="grid gap-2" key={field.key}>
                           <Label htmlFor={field.key}>{field.label}</Label>
@@ -686,7 +743,7 @@ export function MacroDashboard() {
                         </div>
                       ))}
                       <div className="grid gap-2 md:col-span-2">
-                        <Label htmlFor="invalidation">Key invalidation signal</Label>
+                        <Label htmlFor="invalidation">{t("review.invalidation")}</Label>
                         <Input id="invalidation" value={review.invalidation} onChange={(event) => setReview((current) => ({ ...current, invalidation: event.target.value }))} />
                       </div>
                     </CardContent>
@@ -694,7 +751,7 @@ export function MacroDashboard() {
 
                   <Card className="border-[#d9ddd7] bg-[#fbfaf6] shadow-none xl:col-span-2">
                     <CardHeader className="flex-row items-center justify-between space-y-0">
-                      <div><CardTitle className="font-display text-2xl">Upcoming releases</CardTitle><CardDescription>Events to include in the next review.</CardDescription></div><CalendarDays className="size-5 text-[#6f7d78]" />
+                      <div><CardTitle className="font-display text-2xl">{t("review.releases")}</CardTitle><CardDescription>{t("review.releasesHelp")}</CardDescription></div><CalendarDays className="size-5 text-[#6f7d78]" />
                     </CardHeader>
                     <CardContent className="grid gap-3 md:grid-cols-3">
                       {releaseCalendar.map((release) => (
@@ -709,8 +766,8 @@ export function MacroDashboard() {
 
                 <Card className="mt-4 border-[#d9ddd7] bg-[#fbfaf6] shadow-none">
                   <CardContent className="grid gap-4 p-5 md:grid-cols-[1fr_auto] md:items-center">
-                    <div className="flex gap-3"><Database className="mt-0.5 size-5 shrink-0 text-[#175f47]" /><div><p className="mb-1 text-sm font-semibold">The public source pipeline is active</p><p className="mb-0 text-xs leading-5 text-[#6f7d78]">Treasury and BLS readings load without credentials. Add a server-side FRED API key to enable Federal Reserve, rates, and credit series. Scores remain manually controlled.</p></div></div>
-                    <Button variant="outline" className="rounded-full" onClick={() => setActiveTab("indicators")}><Settings2 className="size-4" /> Review source map</Button>
+                    <div className="flex gap-3"><Database className="mt-0.5 size-5 shrink-0 text-[#175f47]" /><div><p className="mb-1 text-sm font-semibold">{t("review.pipeline")}</p><p className="mb-0 text-xs leading-5 text-[#6f7d78]">{t("review.pipelineHelp")}</p></div></div>
+                    <Button variant="outline" className="rounded-full" onClick={() => setActiveTab("indicators")}><Settings2 className="size-4" /> {t("review.sourceMap")}</Button>
                   </CardContent>
                 </Card>
               </div>

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { NfciPoint, NfciYtdResponse } from "@/lib/data/nfci";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 const CHART_WIDTH = 1000;
 const CHART_HEIGHT = 260;
@@ -18,8 +19,8 @@ function signed(value: number | null, digits = 2) {
   return `${value > 0 ? "+" : ""}${value.toFixed(digits)}`;
 }
 
-function shortDate(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
+function shortDate(value: string, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     timeZone: "UTC",
@@ -49,6 +50,7 @@ function chartGeometry(points: readonly NfciPoint[]) {
 }
 
 export function NfciYtdChart() {
+  const { intlLocale, t } = useI18n();
   const currentYear = new Date().getUTCFullYear();
   const [year, setYear] = useState(currentYear);
   const [payload, setPayload] = useState<NfciYtdResponse | null>(null);
@@ -84,17 +86,17 @@ export function NfciYtdChart() {
         <CardHeader className="gap-4 border-b border-[#e0e3de] sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">
-              FINANCIAL CONDITIONS · AUTHORITATIVE CROSS-CHECK
+              {t("nfci.eyebrow").toUpperCase()}
             </p>
             <CardTitle id="nfci-title" className="font-display text-3xl font-medium">
-              Chicago Fed NFCI — YTD
+              {t("nfci.title")}
             </CardTitle>
             <p className="mt-2 max-w-2xl text-xs leading-5 text-[#6f7d78]">
-              Values above zero are tighter than average; values below zero are looser than average. Direction is descriptive, not a trading signal.
+              {t("nfci.description")}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <label className="sr-only" htmlFor="nfci-year">Chart year</label>
+            <label className="sr-only" htmlFor="nfci-year">{t("nfci.year")}</label>
             <select
               id="nfci-year"
               value={year}
@@ -116,23 +118,23 @@ export function NfciYtdChart() {
                 setStatus("loading");
                 setReloadToken((value) => value + 1);
               }}
-              aria-label="Refresh NFCI chart"
+              aria-label={t("nfci.refresh")}
             >
               <RefreshCw className={cn("size-3.5", status === "loading" && "animate-spin")} />
-              Refresh
+              {t("common.refresh")}
             </Button>
           </div>
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
           {status === "loading" && !payload && (
             <div className="grid min-h-72 place-items-center">
-              <LoaderCircle className="size-5 animate-spin text-[#718079]" aria-label="Loading NFCI history" />
+              <LoaderCircle className="size-5 animate-spin text-[#718079]" aria-label={t("nfci.loading")} />
             </div>
           )}
 
           {status === "error" && !payload && (
             <div className="grid min-h-52 place-items-center rounded-2xl border border-[#e3beb7] bg-[#f6e7e3] p-6 text-center text-xs text-[#813d35]">
-              The NFCI history endpoint could not be loaded.
+              {t("nfci.endpointError")}
             </div>
           )}
 
@@ -140,7 +142,7 @@ export function NfciYtdChart() {
             <div className="grid min-h-52 place-items-center rounded-2xl border border-[#e3beb7] bg-[#f6e7e3] p-6 text-center">
               <div>
                 <Activity className="mx-auto mb-3 size-6 text-[#9a463c]" />
-                <p className="font-semibold text-[#813d35]">NFCI history is unavailable</p>
+                <p className="font-semibold text-[#813d35]">{t("nfci.unavailable")}</p>
                 <p className="mt-1 max-w-lg text-xs leading-5 text-[#955d54]">{payload.errorMessage}</p>
               </div>
             </div>
@@ -150,19 +152,19 @@ export function NfciYtdChart() {
             <>
               <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
                 {[
-                  ["Latest", statistics.latest.value.toFixed(2), shortDate(statistics.latest.date)],
-                  ["YTD change", signed(statistics.ytdChange), `from ${statistics.ytdStart.value.toFixed(2)}`],
-                  ["4-week change", signed(statistics.fourWeekChange), statistics.direction],
-                  ["YTD high", statistics.ytdHigh.value.toFixed(2), shortDate(statistics.ytdHigh.date)],
-                  ["YTD low", statistics.ytdLow.value.toFixed(2), shortDate(statistics.ytdLow.date)],
-                  ["Direction", statistics.direction, `${payload.points.length} observations`],
+                  [t("nfci.latest"), statistics.latest.value.toFixed(2), shortDate(statistics.latest.date, intlLocale)],
+                  [t("nfci.ytdChange"), signed(statistics.ytdChange), t("nfci.from", { value: statistics.ytdStart.value.toFixed(2) })],
+                  [t("nfci.fourWeek"), signed(statistics.fourWeekChange), t(`nfci.${statistics.direction}`)],
+                  [t("nfci.ytdHigh"), statistics.ytdHigh.value.toFixed(2), shortDate(statistics.ytdHigh.date, intlLocale)],
+                  [t("nfci.ytdLow"), statistics.ytdLow.value.toFixed(2), shortDate(statistics.ytdLow.date, intlLocale)],
+                  [t("nfci.direction"), t(`nfci.${statistics.direction}`), t("nfci.observations", { count: payload.points.length })],
                 ].map(([label, value, detail]) => (
                   <div key={label} className="rounded-2xl border border-[#e0e3de] bg-white/45 p-3">
                     <p className="text-[8px] font-bold tracking-[.14em] text-[#78857f]">{label.toUpperCase()}</p>
                     <p className={cn(
                       "mt-1 text-lg font-semibold capitalize",
-                      label === "Direction" && statistics.direction === "tightening" && "text-[#a3493d]",
-                      label === "Direction" && statistics.direction === "loosening" && "text-[#176148]",
+                      label === t("nfci.direction") && statistics.direction === "tightening" && "text-[#a3493d]",
+                      label === t("nfci.direction") && statistics.direction === "loosening" && "text-[#176148]",
                     )}>{value}</p>
                     <p className="mt-0.5 text-[9px] capitalize text-[#83908a]">{detail}</p>
                   </div>
@@ -174,7 +176,7 @@ export function NfciYtdChart() {
                   viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
                   className="min-w-[680px]"
                   role="img"
-                  aria-label={`Chicago Fed NFCI weekly observations for ${payload.year}`}
+                  aria-label={t("nfci.aria", { year: payload.year })}
                 >
                   <line x1={PADDING.left} x2={CHART_WIDTH - PADDING.right} y1={geometry.zeroY} y2={geometry.zeroY} stroke="#9da8a2" strokeDasharray="7 6" />
                   <text x={PADDING.left - 8} y={geometry.zeroY + 3} textAnchor="end" fontSize="10" fill="#708079">0</text>
@@ -191,22 +193,22 @@ export function NfciYtdChart() {
                       stroke="#fbfaf6"
                       strokeWidth="2"
                       tabIndex={0}
-                      aria-label={`${shortDate(point.date)}: NFCI ${point.value.toFixed(3)}, Federal Reserve Bank of St. Louis`}
+                      aria-label={`${shortDate(point.date, intlLocale)}: NFCI ${point.value.toFixed(3)}, Federal Reserve Bank of St. Louis`}
                     >
-                      <title>{`${shortDate(point.date)} · ${point.value.toFixed(3)} · FRED`}</title>
+                      <title>{`${shortDate(point.date, intlLocale)} · ${point.value.toFixed(3)} · FRED`}</title>
                     </circle>
                   ))}
-                  <text x={PADDING.left} y={CHART_HEIGHT - 8} fontSize="10" fill="#708079">{shortDate(payload.points[0].date)}</text>
-                  <text x={CHART_WIDTH - PADDING.right} y={CHART_HEIGHT - 8} textAnchor="end" fontSize="10" fill="#708079">{shortDate(statistics.latest.date)}</text>
+                  <text x={PADDING.left} y={CHART_HEIGHT - 8} fontSize="10" fill="#708079">{shortDate(payload.points[0].date, intlLocale)}</text>
+                  <text x={CHART_WIDTH - PADDING.right} y={CHART_HEIGHT - 8} textAnchor="end" fontSize="10" fill="#708079">{shortDate(statistics.latest.date, intlLocale)}</text>
                 </svg>
               </div>
 
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[9px] leading-4 text-[#7b8882]">
                 <span>
-                  Retrieved {new Date(payload.generatedAt).toLocaleString("en-US")} · {payload.freshness} · {payload.cache.backend} {payload.cache.status}
+                  {t("nfci.retrieved", { value: new Date(payload.generatedAt).toLocaleString(intlLocale) })} · {payload.freshness} · {payload.cache.backend} {payload.cache.status}
                 </span>
                 <a href={payload.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-[#175f47] hover:underline">
-                  FRED source <ExternalLink className="size-3" />
+                  FRED {t("common.source")} <ExternalLink className="size-3" />
                 </a>
               </div>
             </>
@@ -214,7 +216,7 @@ export function NfciYtdChart() {
 
           {payload?.freshness === "stale" && (
             <Badge variant="outline" className="mt-3 border-[#dfcfaa] bg-[#f5ecd8] text-[#805c22]">
-              Latest weekly observation is stale
+              {t("nfci.staleBadge")}
             </Badge>
           )}
         </CardContent>

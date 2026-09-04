@@ -55,6 +55,7 @@ export type WeeklyReviewSnapshot = {
   reviewDate: string;
   savedAt: string;
   totalScore: number;
+  scoreScale?: 100;
   regimeLabel: string;
   posture: string;
   pillars: PillarSnapshot[];
@@ -128,6 +129,7 @@ export function createWeeklyReviewSnapshot(input: WeeklyReviewInput): WeeklyRevi
     reviewDate: input.reviewDate,
     savedAt: input.savedAt,
     totalScore: input.totalScore,
+    scoreScale: 100,
     regimeLabel: input.regimeLabel,
     posture: input.posture,
     pillars: input.pillars.map(({ id, area, score, trend, change }) => ({
@@ -306,7 +308,7 @@ export function reviewToMarkdown(review: WeeklyReviewSnapshot, previous?: Weekly
     "",
     `- **Saved:** ${review.savedAt}`,
     `- **Regime:** ${review.regimeLabel} (${review.posture})`,
-    `- **Score:** ${review.totalScore} / 18 (${deltaText})`,
+    `- **Score:** ${review.totalScore} / ${review.scoreScale ?? 18} (${deltaText})`,
     `- **Growth:** ${review.drivers.growth}`,
     `- **Inflation:** ${review.drivers.inflation}`,
     `- **Liquidity:** ${review.drivers.liquidity}`,

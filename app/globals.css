@@ -4,6 +4,34 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  --background: oklch(0.15 0.008 260);
+  --foreground: oklch(0.95 0.008 250);
+  --card: oklch(0.2 0.012 260);
+  --card-foreground: oklch(0.95 0.008 250);
+  --popover: oklch(0.19 0.012 260);
+  --popover-foreground: oklch(0.95 0.008 250);
+  --primary: oklch(0.72 0.1 205);
+  --primary-foreground: oklch(0.15 0.008 260);
+  --secondary: oklch(0.25 0.015 260);
+  --secondary-foreground: oklch(0.9 0.008 250);
+  --muted: oklch(0.24 0.012 260);
+  --muted-foreground: oklch(0.68 0.018 250);
+  --accent: oklch(0.3 0.04 210);
+  --accent-foreground: oklch(0.95 0.008 250);
+  --destructive: oklch(0.58 0.18 28);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.3 0.018 260);
+  --input: oklch(0.32 0.018 260);
+  --ring: oklch(0.72 0.1 205);
+  --chart-1: oklch(0.47 0.1 159);
+  --chart-2: oklch(0.72 0.13 110);
+  --chart-3: oklch(0.66 0.12 73);
+  --chart-4: oklch(0.6 0.14 35);
+  --chart-5: oklch(0.55 0.08 235);
+  --radius: 0.85rem;
+}
+
+:root[data-theme="light"] {
   --background: oklch(0.965 0.008 94);
   --foreground: oklch(0.22 0.025 159);
   --card: oklch(0.987 0.006 94);
@@ -18,17 +46,9 @@
   --muted-foreground: oklch(0.53 0.02 159);
   --accent: oklch(0.9 0.055 118);
   --accent-foreground: oklch(0.28 0.05 154);
-  --destructive: oklch(0.58 0.18 28);
-  --destructive-foreground: oklch(0.99 0 0);
   --border: oklch(0.88 0.01 110);
   --input: oklch(0.87 0.012 110);
   --ring: oklch(0.48 0.08 159);
-  --chart-1: oklch(0.47 0.1 159);
-  --chart-2: oklch(0.72 0.13 110);
-  --chart-3: oklch(0.66 0.12 73);
-  --chart-4: oklch(0.6 0.14 35);
-  --chart-5: oklch(0.55 0.08 235);
-  --radius: 0.85rem;
 }
 
 @theme inline {
@@ -78,6 +98,411 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   text-rendering: optimizeLegibility;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+/* Sector view typography is the shared visual language for every dashboard tab. */
+.macro-shell .font-display {
+  font-family: Arial, Helvetica, sans-serif !important;
+}
+
+.macro-shell .font-extrabold:is(
+  .tracking-\[0\.2em\],
+  .tracking-\[0\.18em\],
+  .tracking-\[\.18em\]
+) {
+  color: #59bdd6 !important;
+}
+
+.macro-shell .regime-card .font-extrabold:is(
+  .tracking-\[0\.2em\],
+  .tracking-\[0\.18em\],
+  .tracking-\[\.18em\]
+) {
+  color: revert-layer !important;
+}
+
+.macro-shell [data-slot="card"]:not(.regime-card) {
+  background-color: #151922 !important;
+  border-color: #293141 !important;
+  color: #f3f5f7;
+  box-shadow: none !important;
+}
+
+.macro-shell [data-slot="card"]:not(.regime-card) :is(
+  .text-\[\#33453e\], .text-\[\#385346\], .text-\[\#5e6d66\],
+  .text-\[\#617069\], .text-\[\#657865\], .text-\[\#66746e\],
+  .text-\[\#68766f\], .text-\[\#6f7d78\], .text-\[\#718079\],
+  .text-\[\#74817b\], .text-\[\#78857f\], .text-\[\#87928d\],
+  .text-\[\#8a9690\], .text-\[\#8b9892\]
+) {
+  color: #929dac !important;
+}
+
+.macro-shell [data-slot="card"]:not(.regime-card) .text-\[\#175f47\] {
+  color: #59bdd6 !important;
+}
+
+.macro-shell [data-slot="card"]:not(.regime-card) :is(.border-\[\#dde0db\], .border-\[\#e1e3df\], .border-\[\#dce0db\]) {
+  border-color: #293141 !important;
+}
+
+.macro-shell [data-slot="card"]:not(.regime-card) .bg-white\/60,
+.macro-shell [data-slot="card"]:not(.regime-card) .bg-white\/35 {
+  background-color: #1c222d !important;
+}
+
+/* Normalize the older editorial views to the Sector view's dark surface system. */
+.macro-shell :is(
+  .bg-\[\#fbfaf6\], .bg-\[\#fbfaf6\]\/60,
+  .bg-white\/25, .bg-white\/30, .bg-white\/35,
+  .bg-white\/40, .bg-white\/45, .bg-white\/55, .bg-white\/60
+) {
+  background-color: #1c222d !important;
+}
+
+.macro-shell :is(
+  .bg-\[\#dfeabf\], .bg-\[\#e1eadf\], .bg-\[\#e4efe8\],
+  .bg-\[\#e5efe8\], .bg-\[\#e7efd2\], .bg-\[\#e8efd5\],
+  .bg-\[\#edf2ec\]
+) {
+  background-color: #14251f !important;
+}
+
+.macro-shell :is(.bg-\[\#f6e7e3\]) {
+  background-color: #25191d !important;
+}
+
+.macro-shell :is(.bg-\[\#f5ecd8\], .bg-\[\#f4ead2\]) {
+  background-color: #2a2318 !important;
+}
+
+.macro-shell :is(.bg-\[\#e7eff8\], .bg-\[\#e9f0f6\]) {
+  background-color: #17222d !important;
+}
+
+.macro-shell :is(
+  .border-\[\#8ca293\], .border-\[\#9fb9ad\], .border-\[\#a9bcb2\],
+  .border-\[\#a9c6b8\], .border-\[\#b9c99e\], .border-\[\#c8d6a7\],
+  .border-\[\#ced9d1\], .border-\[\#cfd5cf\], .border-\[\#d4d9d3\],
+  .border-\[\#d5dad5\], .border-\[\#d9ddd7\], .border-\[\#dce0db\],
+  .border-\[\#dde0db\], .border-\[\#dfe2dd\], .border-\[\#e0e3de\],
+  .border-\[\#e1e3df\]
+) {
+  border-color: #293141 !important;
+}
+
+.macro-shell :is(.border-\[\#b9cce2\], .border-\[\#bfd0df\]) {
+  border-color: #30465c !important;
+}
+
+.macro-shell :is(.border-\[\#dfcfaa\], .border-\[\#d8c7a1\]) {
+  border-color: #5b4926 !important;
+}
+
+.macro-shell :is(.border-\[\#e3beb7\]) {
+  border-color: #63363c !important;
+}
+
+.macro-shell :is(
+  .text-\[\#33453e\], .text-\[\#385346\], .text-\[\#52685a\],
+  .text-\[\#58705f\], .text-\[\#5e6d66\], .text-\[\#5f6e67\],
+  .text-\[\#5f7066\], .text-\[\#617069\], .text-\[\#62756b\],
+  .text-\[\#64756d\], .text-\[\#65756d\], .text-\[\#657865\],
+  .text-\[\#66746e\], .text-\[\#68766f\], .text-\[\#68796e\],
+  .text-\[\#6f7d78\], .text-\[\#718079\], .text-\[\#738079\],
+  .text-\[\#74817b\], .text-\[\#75827c\], .text-\[\#78857f\],
+  .text-\[\#7a8781\], .text-\[\#7b8781\], .text-\[\#7b8882\],
+  .text-\[\#7c8983\], .text-\[\#7d8983\], .text-\[\#829088\],
+  .text-\[\#83908a\], .text-\[\#86918c\], .text-\[\#87928d\],
+  .text-\[\#8a9690\], .text-\[\#8b9691\], .text-\[\#8b9892\],
+  .text-\[\#9dafaa\]
+) {
+  color: #9da7b5 !important;
+}
+
+.macro-shell :is(.text-\[\#2f473b\]) {
+  color: #dbe2ea !important;
+}
+
+.macro-shell :is(.text-\[\#175f47\], .text-\[\#176148\]) {
+  color: #59bdd6 !important;
+}
+
+.macro-shell :is(.text-\[\#155b43\], .text-\[\#1d6c50\], .text-\[\#4d6335\], .text-\[\#526a34\]) {
+  color: #3dd6a0 !important;
+}
+
+.macro-shell :is(
+  .text-\[\#813d35\], .text-\[\#8a5a51\], .text-\[\#93453b\],
+  .text-\[\#955147\], .text-\[\#955d54\], .text-\[\#9a463c\],
+  .text-\[\#a3493d\], .text-\[\#ae5548\]
+) {
+  color: #ff7777 !important;
+}
+
+.macro-shell :is(
+  .text-\[\#6e5124\], .text-\[\#765923\], .text-\[\#7b6a45\],
+  .text-\[\#805c22\], .text-\[\#805f2a\]
+) {
+  color: #f2c14e !important;
+}
+
+.macro-shell :is(.text-\[\#285986\], .text-\[\#315b78\]) {
+  color: #78baf2 !important;
+}
+
+html[data-theme="light"] .macro-shell {
+  background-color: #f3f2ec !important;
+  color: #17231f !important;
+}
+
+html[data-theme="light"] .macro-shell header {
+  background-color: rgba(243, 242, 236, 0.92) !important;
+  border-color: #d9ddd7 !important;
+}
+
+html[data-theme="light"] .macro-shell [data-slot="card"]:not(.regime-card) {
+  background-color: #fbfaf6 !important;
+  border-color: #d9ddd7 !important;
+  color: #17231f;
+}
+
+html[data-theme="light"] .macro-shell [data-slot="card"]:not(.regime-card) :is(
+  .text-\[\#33453e\], .text-\[\#385346\], .text-\[\#5e6d66\],
+  .text-\[\#617069\], .text-\[\#657865\], .text-\[\#66746e\],
+  .text-\[\#68766f\], .text-\[\#6f7d78\], .text-\[\#718079\],
+  .text-\[\#74817b\], .text-\[\#78857f\], .text-\[\#87928d\],
+  .text-\[\#8a9690\], .text-\[\#8b9892\]
+) {
+  color: revert-layer !important;
+}
+
+html[data-theme="light"] .macro-shell [data-slot="card"]:not(.regime-card) .text-\[\#175f47\] {
+  color: #175f47 !important;
+}
+
+html[data-theme="light"] .macro-shell [data-slot="card"]:not(.regime-card) :is(.border-\[\#dde0db\], .border-\[\#e1e3df\], .border-\[\#dce0db\]) {
+  border-color: #dde0db !important;
+}
+
+html[data-theme="light"] .macro-shell [data-slot="card"]:not(.regime-card) .bg-white\/60,
+html[data-theme="light"] .macro-shell [data-slot="card"]:not(.regime-card) .bg-white\/35 {
+  background-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+html[data-theme="light"] .macro-shell :is(
+  .bg-\[\#fbfaf6\], .bg-\[\#fbfaf6\]\/60,
+  .bg-\[\#dfeabf\], .bg-\[\#e1eadf\], .bg-\[\#e4efe8\],
+  .bg-\[\#e5efe8\], .bg-\[\#e7efd2\], .bg-\[\#e8efd5\],
+  .bg-\[\#edf2ec\], .bg-\[\#f6e7e3\], .bg-\[\#f5ecd8\],
+  .bg-\[\#f4ead2\], .bg-\[\#e7eff8\], .bg-\[\#e9f0f6\],
+  .bg-white\/25, .bg-white\/30, .bg-white\/35, .bg-white\/40,
+  .bg-white\/45, .bg-white\/55, .bg-white\/60
+) {
+  background-color: revert-layer !important;
+}
+
+html[data-theme="light"] .macro-shell :is(
+  .border-\[\#8ca293\], .border-\[\#9fb9ad\], .border-\[\#a9bcb2\],
+  .border-\[\#a9c6b8\], .border-\[\#b9c99e\], .border-\[\#b9cce2\],
+  .border-\[\#bfd0df\], .border-\[\#c8d6a7\], .border-\[\#ced9d1\],
+  .border-\[\#cfd5cf\], .border-\[\#d4d9d3\], .border-\[\#d5dad5\],
+  .border-\[\#d8c7a1\], .border-\[\#d9ddd7\], .border-\[\#dce0db\],
+  .border-\[\#dde0db\], .border-\[\#dfcfaa\], .border-\[\#dfe2dd\],
+  .border-\[\#e0e3de\], .border-\[\#e1e3df\], .border-\[\#e3beb7\]
+) {
+  border-color: revert-layer !important;
+}
+
+html[data-theme="light"] .macro-shell :is(
+  .text-\[\#155b43\], .text-\[\#175f47\], .text-\[\#176148\],
+  .text-\[\#1d6c50\], .text-\[\#285986\], .text-\[\#2f473b\],
+  .text-\[\#315b78\], .text-\[\#33453e\], .text-\[\#385346\],
+  .text-\[\#4d6335\], .text-\[\#52685a\], .text-\[\#526a34\],
+  .text-\[\#58705f\], .text-\[\#5e6d66\], .text-\[\#5f6e67\],
+  .text-\[\#5f7066\], .text-\[\#617069\], .text-\[\#62756b\],
+  .text-\[\#64756d\], .text-\[\#65756d\], .text-\[\#657865\],
+  .text-\[\#66746e\], .text-\[\#68766f\], .text-\[\#68796e\],
+  .text-\[\#6e5124\], .text-\[\#6f7d78\], .text-\[\#718079\],
+  .text-\[\#738079\], .text-\[\#74817b\], .text-\[\#75827c\],
+  .text-\[\#765923\], .text-\[\#78857f\], .text-\[\#7a8781\],
+  .text-\[\#7b6a45\], .text-\[\#7b8781\], .text-\[\#7b8882\],
+  .text-\[\#7c8983\], .text-\[\#7d8983\], .text-\[\#805c22\],
+  .text-\[\#805f2a\], .text-\[\#813d35\], .text-\[\#829088\],
+  .text-\[\#83908a\], .text-\[\#86918c\], .text-\[\#87928d\],
+  .text-\[\#8a5a51\], .text-\[\#8a9690\], .text-\[\#8b9691\],
+  .text-\[\#8b9892\], .text-\[\#93453b\], .text-\[\#955147\],
+  .text-\[\#955d54\], .text-\[\#9a463c\], .text-\[\#9dafaa\],
+  .text-\[\#a3493d\], .text-\[\#ae5548\]
+) {
+  color: revert-layer !important;
+}
+
+/* Match every legacy view to the Sector view's neutral day-mode surfaces. */
+html[data-theme="light"] .macro-shell :is(
+  .bg-\[\#fbfaf6\], .bg-\[\#fbfaf6\]\/60,
+  .bg-\[\#dfeabf\], .bg-\[\#e1eadf\], .bg-\[\#e4efe8\],
+  .bg-\[\#e5efe8\], .bg-\[\#e7efd2\], .bg-\[\#e8efd5\],
+  .bg-\[\#edf2ec\]
+) {
+  background-color: #fbfaf6 !important;
+}
+
+html[data-theme="light"] .macro-shell :is(
+  .bg-white\/25, .bg-white\/30, .bg-white\/35, .bg-white\/40,
+  .bg-white\/45, .bg-white\/55, .bg-white\/60
+) {
+  background-color: rgba(255, 255, 255, 0.62) !important;
+}
+
+html[data-theme="light"] .macro-shell .bg-\[\#f6e7e3\] {
+  background-color: #fff4f2 !important;
+}
+
+html[data-theme="light"] .macro-shell :is(.bg-\[\#f5ecd8\], .bg-\[\#f4ead2\]) {
+  background-color: #fff8e8 !important;
+}
+
+html[data-theme="light"] .macro-shell :is(.bg-\[\#e7eff8\], .bg-\[\#e9f0f6\]) {
+  background-color: #f3f8fc !important;
+}
+
+html[data-theme="light"] .macro-shell :is(
+  .border-\[\#8ca293\], .border-\[\#9fb9ad\], .border-\[\#a9bcb2\],
+  .border-\[\#a9c6b8\], .border-\[\#b9c99e\], .border-\[\#c8d6a7\],
+  .border-\[\#ced9d1\], .border-\[\#cfd5cf\], .border-\[\#d4d9d3\],
+  .border-\[\#d5dad5\], .border-\[\#d9ddd7\], .border-\[\#dce0db\],
+  .border-\[\#dde0db\], .border-\[\#dfe2dd\], .border-\[\#e0e3de\],
+  .border-\[\#e1e3df\]
+) {
+  border-color: #d9ddd7 !important;
+}
+
+html[data-theme="light"] .macro-shell :is(.border-\[\#b9cce2\], .border-\[\#bfd0df\]) {
+  border-color: #bfd0df !important;
+}
+
+html[data-theme="light"] .macro-shell :is(.border-\[\#dfcfaa\], .border-\[\#d8c7a1\]) {
+  border-color: #dfcfaa !important;
+}
+
+html[data-theme="light"] .macro-shell .border-\[\#e3beb7\] {
+  border-color: #e3beb7 !important;
+}
+
+html[data-theme="light"] .macro-shell :is(
+  .text-\[\#33453e\], .text-\[\#385346\], .text-\[\#52685a\],
+  .text-\[\#58705f\], .text-\[\#5e6d66\], .text-\[\#5f6e67\],
+  .text-\[\#5f7066\], .text-\[\#617069\], .text-\[\#62756b\],
+  .text-\[\#64756d\], .text-\[\#65756d\], .text-\[\#657865\],
+  .text-\[\#66746e\], .text-\[\#68766f\], .text-\[\#68796e\],
+  .text-\[\#6f7d78\], .text-\[\#718079\], .text-\[\#738079\],
+  .text-\[\#74817b\], .text-\[\#75827c\], .text-\[\#78857f\],
+  .text-\[\#7a8781\], .text-\[\#7b8781\], .text-\[\#7b8882\],
+  .text-\[\#7c8983\], .text-\[\#7d8983\], .text-\[\#829088\],
+  .text-\[\#83908a\], .text-\[\#86918c\], .text-\[\#87928d\],
+  .text-\[\#8a9690\], .text-\[\#8b9691\], .text-\[\#8b9892\],
+  .text-\[\#9dafaa\]
+) {
+  color: #66746e !important;
+}
+
+html[data-theme="light"] .macro-shell .text-\[\#2f473b\] {
+  color: #17231f !important;
+}
+
+html[data-theme="light"] .macro-shell :is(.text-\[\#175f47\], .text-\[\#176148\]) {
+  color: #176148 !important;
+}
+
+html[data-theme="light"] .macro-shell :is(.text-\[\#155b43\], .text-\[\#1d6c50\], .text-\[\#4d6335\], .text-\[\#526a34\]) {
+  color: #1d6c50 !important;
+}
+
+html[data-theme="light"] .macro-shell :is(
+  .text-\[\#813d35\], .text-\[\#8a5a51\], .text-\[\#93453b\],
+  .text-\[\#955147\], .text-\[\#955d54\], .text-\[\#9a463c\],
+  .text-\[\#a3493d\], .text-\[\#ae5548\]
+) {
+  color: #a3493d !important;
+}
+
+html[data-theme="light"] .macro-shell :is(
+  .text-\[\#6e5124\], .text-\[\#765923\], .text-\[\#7b6a45\],
+  .text-\[\#805c22\], .text-\[\#805f2a\]
+) {
+  color: #805c22 !important;
+}
+
+html[data-theme="light"] .macro-shell :is(.text-\[\#285986\], .text-\[\#315b78\]) {
+  color: #315b78 !important;
+}
+
+html[data-theme="light"] .macro-shell .text-\[\#59bdd6\],
+html[data-theme="light"] .macro-shell .font-extrabold:is(
+  .tracking-\[0\.2em\],
+  .tracking-\[0\.18em\],
+  .tracking-\[\.18em\]
+) {
+  color: #2797b3 !important;
+}
+
+html[data-theme="light"] .macro-shell .regime-card .font-extrabold:is(
+  .tracking-\[0\.2em\],
+  .tracking-\[0\.18em\],
+  .tracking-\[\.18em\]
+) {
+  color: revert-layer !important;
+}
+
+html[data-theme="light"] .macro-shell :is(
+  .bg-\[\#0e1014\], .bg-\[\#151922\]
+) {
+  background-color: #fbfaf6 !important;
+}
+
+html[data-theme="light"] .macro-shell .bg-\[\#0e1014\]\/90 {
+  background-color: rgba(243, 242, 236, 0.92) !important;
+}
+
+html[data-theme="light"] .macro-shell :is(.bg-\[\#293141\], .bg-\[\#262d3a\]) {
+  background-color: #d9ddd7 !important;
+}
+
+html[data-theme="light"] .macro-shell :is(
+  .border-\[\#252c38\], .border-\[\#293141\], .border-\[\#30394a\]
+) {
+  border-color: #d4d9d3 !important;
+}
+
+html[data-theme="light"] .macro-shell :is(
+  .text-\[\#eef2f6\], .text-\[\#f3f5f7\], .text-\[\#dbe2ea\]
+) {
+  color: #17231f !important;
+}
+
+html[data-theme="light"] .macro-shell :is(
+  .text-\[\#9da7b5\], .text-\[\#a8b3c1\], .text-\[\#9ba7b6\],
+  .text-\[\#93a1b1\], .text-\[\#8f9baa\], .text-\[\#7f8a99\],
+  .text-\[\#768292\], .text-\[\#6f7a89\], .text-\[\#74808f\]
+) {
+  color: #66746e !important;
+}
+
+html[data-theme="light"] .macro-shell .ai-insight-card :is(li, .text-\[\#d4dbe5\], .text-\[\#cbd3de\]) {
+  color: #34443d !important;
+}
+
+html[data-theme="light"] .macro-shell .ai-insight-card :is(
+  .border-\[\#30394a\], .border-\[\#3b4658\]
+) {
+  border-color: #cbd3c5 !important;
+}
+
+html[data-theme="light"] .macro-shell .sector-summary,
+html[data-theme="light"] .macro-shell .sector-summary > div {
+  border-color: #d9ddd7 !important;
 }
 
 button,
