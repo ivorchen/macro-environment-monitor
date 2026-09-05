@@ -10,7 +10,7 @@ services:
         required: false
     environment:
       NODE_ENV: production
-      APP_URL: ${APP_URL:-https://salute-pang-bottom.ngrok-free.dev/}
+      APP_URL: ${APP_URL:?Set APP_URL to the public production origin}
       REDIS_URL: redis://redis:6379
       REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX:-macro-monitor}
     ports:

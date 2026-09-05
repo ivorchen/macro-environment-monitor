@@ -505,6 +505,50 @@ html[data-theme="light"] .macro-shell .sector-summary > div {
   border-color: #d9ddd7 !important;
 }
 
+.macro-shell .economic-calendar-event {
+  background-color: #1c222d;
+  border-color: #293141;
+}
+
+.macro-shell .economic-calendar-event:hover {
+  border-color: #3c5066;
+}
+
+.macro-shell .economic-calendar-high {
+  background-color: #2a2318;
+  border-color: #5b4926;
+  color: #f2c14e;
+}
+
+.macro-shell .economic-calendar-medium {
+  background-color: #17222d;
+  border-color: #30465c;
+  color: #78baf2;
+}
+
+html[data-theme="light"] .macro-shell .economic-calendar-event {
+  background-color: #f6f5ef !important;
+  border-color: #d7dbd5 !important;
+  color: #17231f;
+}
+
+html[data-theme="light"] .macro-shell .economic-calendar-event:hover {
+  background-color: #f1f4ef !important;
+  border-color: #8fa9a0 !important;
+}
+
+html[data-theme="light"] .macro-shell .economic-calendar-high {
+  background-color: #fff6df !important;
+  border-color: #e2c675 !important;
+  color: #735018 !important;
+}
+
+html[data-theme="light"] .macro-shell .economic-calendar-medium {
+  background-color: #edf6fb !important;
+  border-color: #bad8e6 !important;
+  color: #285e77 !important;
+}
+
 button,
 a,
 input,

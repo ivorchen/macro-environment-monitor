@@ -1,122 +1,81 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
   BarChart3,
-  BookOpenCheck,
-  CalendarDays,
-  Check,
   ChevronRight,
-  CircleGauge,
-  Database,
-  History,
   Landmark,
   LayoutDashboard,
-  NotebookPen,
   PieChart,
   Plus,
-  RotateCcw,
-  Save,
-  Settings2,
   ShieldCheck,
-  TrendingUp,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { AiMarketInsightPanel } from "@/components/ai-market-insight-panel";
+import { EconomicCalendarPanel } from "@/components/economic-calendar-panel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Label } from "@/components/ui/label";
 import { MarketSnapshotPanel } from "@/components/market-snapshot-panel";
 import { NfciYtdChart } from "@/components/nfci-ytd-chart";
-import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { SourceStatusPanel } from "@/components/source-status-panel";
 import { SenateTradesPanel } from "@/components/senate-trades-panel";
-import { SenateWeeklySummary } from "@/components/senate-weekly-summary";
 import { SectorViewPanel } from "@/components/sector-view-panel";
-import { WeeklyHistoryPanel } from "@/components/weekly-history-panel";
-import { XWhatsNewPanel } from "@/components/x-whats-new-panel";
+import { MarketNewsPanel } from "@/components/market-news-panel";
 import { sourceForIndicator } from "@/lib/data/source-registry";
-import type { IndicatorApiResponse } from "@/lib/data/types";
-import type { NfciYtdResponse } from "@/lib/data/nfci";
-import type { SenateTradesResponse } from "@/lib/data/senate-trades";
 import {
   INITIAL_PILLARS,
   type Pillar,
   type Score,
 } from "@/lib/macro";
 import { applyRiskScoreToPillars, type RiskScoreResponse, type RiskZone } from "@/lib/risk-score";
-import {
-  REVIEW_HISTORY_STORAGE_KEY,
-  createWeeklyReviewSnapshot,
-  parseReviewHistory,
-  sortReviewHistory,
-  updateReviewOutcome,
-  type HypothesisDraft,
-  type ReviewOutcome,
-  type SenateReviewEvidence,
-  type WeeklyReviewSnapshot,
-} from "@/lib/review-history";
 import { cn } from "@/lib/utils";
 import { useI18n, type MessageKey } from "@/lib/i18n";
-
-const releaseCalendar = [
-  { day: "20", month: "AUG", event: "FOMC minutes", importance: "High" },
-  { day: "21", month: "AUG", event: "Initial jobless claims", importance: "Medium" },
-  { day: "22", month: "AUG", event: "Powell at Jackson Hole", importance: "High" },
-];
-
-const dailyChecks = [
-  "2Y and 10Y Treasury yields",
-  "10Y real yield",
-  "DXY / broad USD trend",
-  "VIX and term structure",
-  "SPX / NDX / RSP / Russell 2000",
-  "Semiconductors and high-yield credit",
-  "Oil / gold / copper",
-  "Today’s macro releases and Fed speakers",
-  "Earnings revisions and AI-capex news",
-  "Senate disclosures and unusual filing lags",
-];
-
-type ReviewState = {
-  growth: string;
-  inflation: string;
-  liquidity: string;
-  increaseExposure: string;
-  reduceRisk: string;
-  favoredSectors: string;
-  pressuredSectors: string;
-  invalidation: string;
-};
-
-const initialReview: ReviewState = {
-  growth: "Stable",
-  inflation: "Cooling",
-  liquidity: "Expanding",
-  increaseExposure: "Breadth improves while credit stays calm and real yields remain contained.",
-  reduceRisk: "Credit spreads widen materially or the dollar and real yields rise together.",
-  favoredSectors: "Quality technology, semiconductors, selective industrials",
-  pressuredSectors: "Highly levered small caps and long-duration defensives",
-  invalidation: "HY OAS > 350 bps with declining EPS revision breadth",
-};
 
 function scoreTone(score: Score) {
   if (score > 0) return "positive";
   if (score < 0) return "negative";
   return "neutral";
+}
+
+function isoWeek(date: Date) {
+  const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = utcDate.getUTCDay() || 7;
+  utcDate.setUTCDate(utcDate.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
+  return Math.ceil((((utcDate.getTime() - yearStart.getTime()) / 86_400_000) + 1) / 7);
+}
+
+function greetingKey(date: Date | null): MessageKey {
+  if (!date) return "overview.greetingEvening";
+  const hour = date.getHours();
+  if (hour < 12) return "overview.greetingMorning";
+  if (hour < 18) return "overview.greetingAfternoon";
+  return "overview.greetingEvening";
+}
+
+const LEGACY_SAMPLE_OBSERVATIONS = [
+  "Real yields eased from the monthly high, reducing pressure on long-duration equities.",
+  "Credit remained calm while the S&P 500 advanced.",
+  "Breadth weakened as equal-weight lagged the headline index.",
+];
+
+function isLegacySampleObservations(value: unknown): value is string[] {
+  return Array.isArray(value)
+    && value.length === LEGACY_SAMPLE_OBSERVATIONS.length
+    && value.every((item, index) => item === LEGACY_SAMPLE_OBSERVATIONS[index]);
 }
 
 function scoreClasses(score: Score) {
@@ -182,42 +141,37 @@ function TrendIcon({ trend }: { trend: Pillar["trend"] }) {
 
 export function MacroDashboard() {
   const { t } = useI18n();
-  const [pillars, setPillars] = useState(INITIAL_PILLARS);
+  const [now, setNow] = useState<Date | null>(null);
+  const [pillars, setPillars] = useState<Pillar[]>(() => INITIAL_PILLARS.map((pillar) => ({ ...pillar, score: 0, trend: "Stable" })));
   const [riskScore, setRiskScore] = useState<RiskScoreResponse | null>(null);
+  const [riskStatus, setRiskStatus] = useState<"loading" | "ready" | "unavailable">("loading");
   const [activeTab, setActiveTab] = useState("overview");
-  const [observations, setObservations] = useState([
-    "Real yields eased from the monthly high, reducing pressure on long-duration equities.",
-    "Credit remained calm while the S&P 500 advanced.",
-    "Breadth weakened as equal-weight lagged the headline index.",
-  ]);
+  const [observations, setObservations] = useState<string[]>([]);
   const [draftObservation, setDraftObservation] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [review, setReview] = useState(initialReview);
-  const [completedChecks, setCompletedChecks] = useState<string[]>([]);
-  const [reviewHistory, setReviewHistory] = useState<WeeklyReviewSnapshot[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    let storedState: {
-      observations?: string[];
-      review?: ReviewState;
-      completedChecks?: string[];
-    } | null = null;
-    let storedHistory: WeeklyReviewSnapshot[] = [];
+    const timer = window.setTimeout(() => setNow(new Date()), 0);
+    const interval = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    let storedState: { observations?: string[] } | null = null;
     try {
       const saved = window.localStorage.getItem("macro-monitor-state-v1");
-      if (saved) {
-        storedState = JSON.parse(saved);
-      }
-      storedHistory = parseReviewHistory(window.localStorage.getItem(REVIEW_HISTORY_STORAGE_KEY));
+      if (saved) storedState = JSON.parse(saved);
     } catch {
       // Keep the safe defaults if browser storage is unavailable or invalid.
     }
     const hydrationTimer = window.setTimeout(() => {
-      if (storedState?.observations) setObservations(storedState.observations);
-      if (storedState?.review) setReview(storedState.review);
-      if (storedState?.completedChecks) setCompletedChecks(storedState.completedChecks);
-      setReviewHistory(storedHistory);
+      if (storedState?.observations && !isLegacySampleObservations(storedState.observations)) {
+        setObservations(storedState.observations);
+      }
       setHydrated(true);
     }, 0);
     return () => window.clearTimeout(hydrationTimer);
@@ -225,24 +179,28 @@ export function MacroDashboard() {
 
   useEffect(() => {
     if (!hydrated) return;
-    window.localStorage.setItem(
-      "macro-monitor-state-v1",
-      JSON.stringify({ observations, review, completedChecks }),
-    );
-  }, [completedChecks, hydrated, observations, review]);
+    try {
+      const saved = window.localStorage.getItem("macro-monitor-state-v1");
+      const current = saved ? JSON.parse(saved) as Record<string, unknown> : {};
+      window.localStorage.setItem("macro-monitor-state-v1", JSON.stringify({ ...current, observations }));
+    } catch {
+      // Browser storage is optional; keep the in-memory observation list.
+    }
+  }, [hydrated, observations]);
 
   useEffect(() => {
     let active = true;
     const load = async () => {
       try {
         const response = await fetch("/api/risk-score", { cache: "no-store" });
-        if (!response.ok) return;
+        if (!response.ok) throw new Error(`Risk score returned ${response.status}`);
         const payload = await response.json() as RiskScoreResponse;
         if (!active) return;
         setRiskScore(payload);
         setPillars(applyRiskScoreToPillars(INITIAL_PILLARS, payload.components));
+        setRiskStatus(payload.score === null ? "unavailable" : "ready");
       } catch {
-        // Keep the neutral unavailable state when the live scoring route is offline.
+        if (active) setRiskStatus("unavailable");
       }
     };
     void load();
@@ -250,16 +208,15 @@ export function MacroDashboard() {
     return () => { active = false; window.clearInterval(interval); };
   }, []);
 
-  useEffect(() => {
-    if (!hydrated) return;
-    window.localStorage.setItem(REVIEW_HISTORY_STORAGE_KEY, JSON.stringify(reviewHistory));
-  }, [hydrated, reviewHistory]);
-
-  const total = riskScore?.score ?? 50;
+  const hasRiskScore = riskStatus === "ready" && riskScore?.score !== null && riskScore?.score !== undefined;
+  const total = hasRiskScore ? riskScore.score! : 50;
   const regimeCopy = useMemo(() => zoneCopy(riskScore?.zone ?? "unavailable"), [riskScore?.zone]);
   const regime = useMemo(() => ({ label: t(regimeCopy.label), posture: t(regimeCopy.posture) }), [regimeCopy, t]);
   const regimeTheme = useMemo(() => regimePanelTheme(total), [total]);
-  const completion = Math.round((completedChecks.length / dailyChecks.length) * 100);
+  const livePillarIds = useMemo(() => new Set(
+    riskScore?.components.filter((component) => component.score !== null).map((component) => component.id) ?? [],
+  ), [riskScore]);
+  const isLivePillar = (id: string) => riskStatus === "ready" && livePillarIds.has(id as RiskScoreResponse["components"][number]["id"]);
 
   function addObservation() {
     const value = draftObservation.trim();
@@ -269,121 +226,30 @@ export function MacroDashboard() {
     setDialogOpen(false);
   }
 
-  function resetWorkspace() {
-    setObservations([
-      "Real yields eased from the monthly high, reducing pressure on long-duration equities.",
-      "Credit remained calm while the S&P 500 advanced.",
-      "Breadth weakened as equal-weight lagged the headline index.",
-    ]);
-    setReview(initialReview);
-    setCompletedChecks([]);
-  }
-
-  async function saveWeeklyReview(reviewDate: string, hypothesis: HypothesisDraft) {
-    if (!riskScore || riskScore.score === null) {
-      return "The live macro risk score is unavailable. Refresh the source data before saving a review.";
-    }
-    if (reviewHistory.some((savedReview) => savedReview.reviewDate === reviewDate)) {
-      return "A review already exists for this date. Historical evidence is immutable; choose a new date.";
-    }
-
-    let payload: IndicatorApiResponse;
-    try {
-      const response = await fetch("/api/indicators", { cache: "no-store" });
-      if (!response.ok) return `The indicator snapshot returned ${response.status}. Try again before saving.`;
-      payload = (await response.json()) as IndicatorApiResponse;
-    } catch {
-      return "The indicator snapshot could not be captured. Check the source service and try again.";
-    }
-
-    const optionalPayload = async <T,>(url: string): Promise<T | undefined> => {
-      try {
-        const response = await fetch(url, { cache: "no-store" });
-        return response.ok ? await response.json() as T : undefined;
-      } catch {
-        return undefined;
-      }
-    };
-    const [financialConditions, senatePayload] = await Promise.all([
-      optionalPayload<NfciYtdResponse>("/api/financial-conditions/nfci"),
-      optionalPayload<SenateTradesResponse>("/api/senate-trades?window=90D"),
-    ]);
-    const senateEvidence: SenateReviewEvidence | undefined = senatePayload ? {
-      generatedAt: senatePayload.generatedAt,
-      window: senatePayload.window,
-      windowStart: senatePayload.windowStart,
-      ruleVersion: senatePayload.ruleVersion,
-      status: senatePayload.status,
-      freshness: senatePayload.freshness,
-      overview: senatePayload.overview,
-      bipartisan: senatePayload.bipartisan,
-      popularByParty: senatePayload.popularByParty,
-      eligibleTransactions: senatePayload.transactions.filter((transaction) => transaction.eligiblePurchase),
-      quality: senatePayload.quality,
-    } : undefined;
-
-    const snapshot = createWeeklyReviewSnapshot({
-      id: globalThis.crypto?.randomUUID?.() ?? `review-${Date.now()}`,
-      reviewDate,
-      savedAt: new Date().toISOString(),
-      totalScore: total,
-      regimeLabel: regime.label,
-      posture: regime.posture,
-      pillars,
-      drivers: {
-        growth: review.growth,
-        inflation: review.inflation,
-        liquidity: review.liquidity,
-      },
-      portfolio: {
-        increaseExposure: review.increaseExposure,
-        reduceRisk: review.reduceRisk,
-        favoredSectors: review.favoredSectors,
-        pressuredSectors: review.pressuredSectors,
-        invalidation: review.invalidation,
-      },
-      observations,
-      completedChecks,
-      indicatorReadings: payload.readings,
-      financialConditions,
-      senateEvidence,
-      hypothesis,
-    });
-
-    setReviewHistory((current) => sortReviewHistory([snapshot, ...current]));
-    return null;
-  }
-
-  function reviseOutcome(id: string, outcome: Pick<ReviewOutcome, "rating" | "note">) {
-    setReviewHistory((current) => updateReviewOutcome(current, id, outcome, new Date().toISOString()));
-  }
-
   return (
     <TooltipProvider>
       <main className="macro-shell min-h-screen bg-[#0e1014] text-[#f3f5f7]">
-        <aside className="fixed inset-x-0 bottom-0 z-50 flex h-[68px] items-center border-t border-white/10 bg-[#102b24] px-4 text-white md:inset-y-0 md:left-0 md:right-auto md:h-auto md:w-[76px] md:flex-col md:border-r md:border-t-0 md:px-0 md:py-5">
+        <aside className="fixed inset-x-0 bottom-0 z-50 flex h-[68px] items-center border-t border-border bg-card px-4 text-card-foreground md:inset-y-0 md:left-0 md:right-auto md:h-auto md:w-[76px] md:flex-col md:border-r md:border-t-0 md:px-0 md:py-5">
           <button
-            className="grid size-10 place-items-center rounded-full bg-[#cce77e] font-display text-lg font-bold text-[#102b24]"
+            className="grid size-10 place-items-center overflow-hidden rounded-xl transition-opacity hover:opacity-90"
             onClick={() => setActiveTab("overview")}
             aria-label={t("nav.home")}
           >
-            M
+            <Image src="/favicon.svg" alt="" width={40} height={40} priority />
           </button>
           <nav className="mx-auto flex gap-2 md:mt-16 md:grid" aria-label={t("nav.primary")}>
             {[
               { value: "overview", label: t("nav.overview"), icon: LayoutDashboard },
               { value: "indicators", label: t("nav.indicators"), icon: BarChart3 },
               { value: "sectors", label: t("nav.sectors"), icon: PieChart },
-              { value: "review", label: t("nav.review"), icon: BookOpenCheck },
-              { value: "journal", label: t("nav.journal"), icon: History },
               { value: "senate", label: t("nav.senate"), icon: Landmark },
             ].map((item) => (
               <Tooltip key={item.value}>
                 <TooltipTrigger asChild>
                   <button
                     className={cn(
-                      "grid size-10 place-items-center rounded-xl text-[#9dafaa] transition hover:bg-white/10 hover:text-[#cce77e]",
-                      activeTab === item.value && "bg-white/10 text-[#cce77e]",
+                      "grid size-10 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+                      activeTab === item.value && "bg-accent text-accent-foreground",
                     )}
                     onClick={() => setActiveTab(item.value)}
                     aria-label={item.label}
@@ -395,14 +261,6 @@ export function MacroDashboard() {
               </Tooltip>
             ))}
           </nav>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="grid size-10 place-items-center rounded-full border border-white/25 text-[11px] font-bold md:mt-auto" aria-label={t("nav.profile")}>
-                IC
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">{t("nav.workspace")}</TooltipContent>
-          </Tooltip>
         </aside>
 
         <div className="pb-24 md:ml-[76px] md:pb-10">
@@ -423,17 +281,10 @@ export function MacroDashboard() {
                     <TabsTrigger value="overview" className="rounded-full px-4 text-xs">{t("nav.overview")}</TabsTrigger>
                     <TabsTrigger value="indicators" className="rounded-full px-4 text-xs">{t("nav.indicators")}</TabsTrigger>
                     <TabsTrigger value="sectors" className="rounded-full px-4 text-xs">{t("nav.sectors")}</TabsTrigger>
-                    <TabsTrigger value="review" className="rounded-full px-4 text-xs">{t("header.review")}</TabsTrigger>
-                    <TabsTrigger value="journal" className="rounded-full px-4 text-xs">{t("nav.journal")}</TabsTrigger>
                     <TabsTrigger value="senate" className="rounded-full px-4 text-xs">{t("nav.senate")}</TabsTrigger>
                   </TabsList>
                   <ThemeSwitcher />
                   <LanguageSwitcher />
-                  <Button className="rounded-full bg-[#175f47] px-4 text-xs text-white hover:bg-[#104b38]" onClick={() => setActiveTab("review")}>
-                    <NotebookPen className="size-4" />
-                    <span className="hidden sm:inline">{t("header.startReview")}</span>
-                    <span className="sm:hidden">{t("header.review")}</span>
-                  </Button>
                 </div>
               </div>
             </header>
@@ -442,8 +293,8 @@ export function MacroDashboard() {
               <div className="mx-auto max-w-[1500px] px-4 py-7 sm:px-7 lg:px-12 lg:py-10">
                 <div className="mb-7 flex flex-wrap items-end justify-between gap-3">
                   <div>
-                    <p className="mb-2 text-[10px] font-extrabold tracking-[0.18em] text-[#6f7d78]">{t("overview.week").toUpperCase()}</p>
-                    <h2 className="font-display text-4xl font-medium tracking-[-0.04em] sm:text-5xl">{t("overview.greeting")}</h2>
+                    <p className="mb-2 text-[10px] font-extrabold tracking-[0.18em] text-[#6f7d78]">{now ? t("overview.week", { week: isoWeek(now) }).toUpperCase() : "\u00a0"}</p>
+                    <h2 className="font-display text-4xl font-medium tracking-[-0.04em] sm:text-5xl">{t(greetingKey(now))}</h2>
                   </div>
                   <p className="max-w-md text-xs leading-5 text-[#6f7d78]">{t("overview.guidance")}</p>
                 </div>
@@ -475,16 +326,16 @@ export function MacroDashboard() {
                             className="mb-2 text-xs font-extrabold tracking-[0.1em] transition-colors duration-500"
                             style={{ color: regimeTheme.accent }}
                           >
-                            {riskScore ? regime.label.toUpperCase() : t("common.loading").toUpperCase()}
+                            {riskStatus === "ready" ? regime.label.toUpperCase() : t(riskStatus === "loading" ? "common.loading" : "risk.unavailable").toUpperCase()}
                           </p>
                           <p className="font-display text-[88px] leading-[.82] tracking-[-0.08em] sm:text-[112px]">
-                            {riskScore?.score ?? "—"}<span className="ml-2 font-sans text-base tracking-normal text-white/45">/ 100</span>
+                            {hasRiskScore ? riskScore.score : "—"}<span className="ml-2 font-sans text-base tracking-normal text-white/45">/ 100</span>
                           </p>
                         </div>
                         <div className="border-t border-white/20 pt-6 md:border-l md:border-t-0 md:pl-8 md:pt-0">
-                          <p className="font-display text-2xl leading-tight">{regime.posture}</p>
+                          <p className="font-display text-2xl leading-tight">{riskStatus === "ready" ? regime.posture : t(riskStatus === "loading" ? "risk.loading" : "risk.unavailableHelp")}</p>
                           <p className="mt-3 text-xs leading-5 text-white/65">
-                            {riskScore ? t("risk.coverage", { coverage: riskScore.coverage, version: riskScore.methodologyVersion }) : t("risk.loading")}
+                            {riskStatus === "ready" && riskScore ? t("risk.coverage", { coverage: riskScore.coverage, version: riskScore.methodologyVersion }) : t(riskStatus === "loading" ? "risk.loading" : "risk.unavailableHelp")}
                           </p>
                         </div>
                       </div>
@@ -510,10 +361,12 @@ export function MacroDashboard() {
                     <AiMarketInsightPanel />
                   </div>
 
+                  <EconomicCalendarPanel />
+
                   <Card className="border-[#d9ddd7] bg-[#fbfaf6] shadow-none">
                     <CardHeader className="flex-row items-end justify-between space-y-0">
                       <div>
-                        <p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">{t("overview.pillars").toUpperCase()}</p>
+                        <p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">{riskStatus === "ready" ? t("overview.pillars", { count: livePillarIds.size }).toUpperCase() : t("common.loading").toUpperCase()}</p>
                         <CardTitle className="font-display text-3xl font-medium tracking-tight">{t("overview.scorecard")}</CardTitle>
                       </div>
                       <Button variant="ghost" size="sm" className="text-xs text-[#175f47]" onClick={() => setActiveTab("indicators")}>
@@ -527,7 +380,7 @@ export function MacroDashboard() {
                             <span className={cn("size-2 rounded-full", scoreTone(pillar.score) === "positive" ? "bg-[#1d6c50]" : scoreTone(pillar.score) === "negative" ? "bg-[#ae5548]" : "bg-[#b78334]")} />
                             <div>
                               <p className="mb-0 text-sm font-semibold">{t(`pillar.${pillar.id}` as MessageKey)}</p>
-                              <p className="mb-0 mt-0.5 hidden text-[10px] text-[#78857f] md:block">{pillar.change}</p>
+                              {isLivePillar(pillar.id) && <p className="mb-0 mt-0.5 hidden text-[10px] text-[#78857f] md:block">{pillar.change}</p>}
                             </div>
                             <Badge
                               variant="outline"
@@ -535,12 +388,12 @@ export function MacroDashboard() {
                                 "h-9 w-full justify-center rounded-full px-3 text-xs font-bold shadow-none",
                                 scoreClasses(pillar.score),
                               )}
-                              aria-label={`${t(`pillar.${pillar.id}` as MessageKey)}: ${t(pillar.score === 2 ? "score.strongPositive" : pillar.score === 1 ? "score.positive" : pillar.score === 0 ? "score.neutral" : pillar.score === -1 ? "score.negative" : "score.strongNegative")}`}
+                              aria-label={`${t(`pillar.${pillar.id}` as MessageKey)}: ${isLivePillar(pillar.id) ? t(pillar.score === 2 ? "score.strongPositive" : pillar.score === 1 ? "score.positive" : pillar.score === 0 ? "score.neutral" : pillar.score === -1 ? "score.negative" : "score.strongNegative") : t("common.unavailable")}`}
                             >
-                              {t(pillar.score === 2 ? "score.strongPositive" : pillar.score === 1 ? "score.positive" : pillar.score === 0 ? "score.neutral" : pillar.score === -1 ? "score.negative" : "score.strongNegative")}
+                              {isLivePillar(pillar.id) ? t(pillar.score === 2 ? "score.strongPositive" : pillar.score === 1 ? "score.positive" : pillar.score === 0 ? "score.neutral" : pillar.score === -1 ? "score.negative" : "score.strongNegative") : t("common.unavailable")}
                             </Badge>
                             <div className="hidden items-center justify-end gap-2 text-[10px] text-[#6f7d78] sm:flex">
-                              {t(`trend.${pillar.trend}` as MessageKey)}<TrendIcon trend={pillar.trend} />
+                              {isLivePillar(pillar.id) ? <>{t(`trend.${pillar.trend}` as MessageKey)}<TrendIcon trend={pillar.trend} /></> : t("common.unavailable")}
                             </div>
                           </div>
                         ))}
@@ -554,17 +407,17 @@ export function MacroDashboard() {
                         <p className="mb-2 text-[9px] font-extrabold tracking-[0.2em] text-[#6f7d78]">{t("overview.weeklyDelta").toUpperCase()}</p>
                         <CardTitle className="font-display text-3xl font-medium tracking-tight">{t("overview.whatChanged")}</CardTitle>
                       </div>
-                      <Badge variant="secondary" className="rounded-md font-mono text-[9px]">W34</Badge>
+                      <Badge variant="secondary" className="rounded-md font-mono text-[9px]">{now ? `W${isoWeek(now)}` : "—"}</Badge>
                     </CardHeader>
                     <CardContent>
-                      <ol className="divide-y divide-[#dde0db] border-t border-[#dde0db]">
+                      {observations.length ? <ol className="divide-y divide-[#dde0db] border-t border-[#dde0db]">
                         {observations.map((observation, index) => (
                           <li className="grid grid-cols-[28px_1fr] gap-3 py-4" key={`${observation}-${index}`}>
                             <span className="pt-0.5 font-mono text-[9px] font-bold text-[#1d6c50]">{String(index + 1).padStart(2, "0")}</span>
                             <p className="mb-0 text-xs leading-5 text-[#66746e]">{observation}</p>
                           </li>
                         ))}
-                      </ol>
+                      </ol> : <p className="border-t border-[#dde0db] py-5 text-xs leading-5 text-[#78857f]">{t("overview.noChanges")}</p>}
                       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                         <DialogTrigger asChild>
                           <Button variant="outline" className="mt-3 w-full rounded-full border-[#a9c6b8] bg-transparent text-xs font-bold text-[#175f47] hover:bg-[#e5efe8]">
@@ -607,7 +460,7 @@ export function MacroDashboard() {
 
                 <NfciYtdChart />
                 <MarketSnapshotPanel />
-                <XWhatsNewPanel />
+                <MarketNewsPanel />
               </div>
             </TabsContent>
 
@@ -636,7 +489,7 @@ export function MacroDashboard() {
                       <CardHeader>
                         <div className="flex items-center justify-between">
                           <span className="font-mono text-[9px] font-bold text-[#78857f]">{String(index + 1).padStart(2, "0")}</span>
-                          <div className="flex gap-1.5"><Badge variant="outline" className="text-[9px]">{t(`priority.${pillar.priority}` as MessageKey)}</Badge><Badge className={cn("border text-[9px] shadow-none", scoreClasses(pillar.score))}>{pillar.score > 0 ? "+" : ""}{pillar.score}</Badge></div>
+                          <div className="flex gap-1.5"><Badge variant="outline" className="text-[9px]">{t(`priority.${pillar.priority}` as MessageKey)}</Badge><Badge className={cn("border text-[9px] shadow-none", scoreClasses(pillar.score))}>{isLivePillar(pillar.id) ? `${pillar.score > 0 ? "+" : ""}${pillar.score}` : "—"}</Badge></div>
                         </div>
                         <CardTitle className="font-display text-3xl font-medium">{t(`pillar.${pillar.id}` as MessageKey)}</CardTitle>
                         <CardDescription className="min-h-10 text-xs leading-5">{pillar.question}</CardDescription>
@@ -654,135 +507,12 @@ export function MacroDashboard() {
                           })}
                         </div>
                         <Separator className="my-5" />
-                        <div className="flex items-center justify-between text-[10px] text-[#6f7d78]"><span>{t("indicators.currentTrend")}</span><span className="flex items-center gap-1.5 font-semibold text-[#33453e]">{t(`trend.${pillar.trend}` as MessageKey)}<TrendIcon trend={pillar.trend} /></span></div>
+                        <div className="flex items-center justify-between text-[10px] text-[#6f7d78]"><span>{t("indicators.currentTrend")}</span><span className="flex items-center gap-1.5 font-semibold text-[#33453e]">{isLivePillar(pillar.id) ? <>{t(`trend.${pillar.trend}` as MessageKey)}<TrendIcon trend={pillar.trend} /></> : t("common.unavailable")}</span></div>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
               </div>
-            </TabsContent>
-
-            <TabsContent value="review" className="m-0 focus-visible:outline-none">
-              <div className="mx-auto max-w-[1500px] px-4 py-8 sm:px-7 lg:px-12 lg:py-10">
-                <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-                  <div>
-                    <p className="mb-2 text-[10px] font-extrabold tracking-[0.2em] text-[#6f7d78]">{t("review.eyebrow").toUpperCase()}</p>
-                    <h2 className="font-display text-4xl tracking-[-0.04em] sm:text-5xl">{t("review.title")}</h2>
-                    <p className="mt-3 text-sm text-[#66746e]">{t("review.autosave")}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" className="rounded-full" onClick={resetWorkspace}><RotateCcw className="size-4" /> {t("review.reset")}</Button>
-                    <Button className="rounded-full bg-[#175f47] hover:bg-[#104b38]" onClick={() => setActiveTab("journal")}><Save className="size-4" /> {t("review.openJournal")}</Button>
-                  </div>
-                </div>
-
-                <SenateWeeklySummary />
-
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.75fr)]">
-                  <Card className="border-[#d9ddd7] bg-[#fbfaf6] shadow-none">
-                    <CardHeader>
-                      <div className="flex items-center gap-3"><div className="grid size-10 place-items-center rounded-xl bg-[#e1eadf] text-[#175f47]"><CircleGauge className="size-5" /></div><div><CardTitle className="font-display text-2xl">{t("review.define")}</CardTitle><CardDescription>{t("review.defineHelp")}</CardDescription></div></div>
-                    </CardHeader>
-                    <CardContent className="grid gap-5 sm:grid-cols-3">
-                      {[
-                        { key: "growth", label: t("review.growth"), options: ["Accelerating", "Stable", "Slowing"] },
-                        { key: "inflation", label: t("review.inflation"), options: ["Accelerating", "Stable", "Cooling"] },
-                        { key: "liquidity", label: t("review.liquidity"), options: ["Expanding", "Neutral", "Contracting"] },
-                      ].map((field) => (
-                        <div className="grid gap-2" key={field.key}>
-                          <Label>{field.label}</Label>
-                          <Select value={review[field.key as keyof Pick<ReviewState, "growth" | "inflation" | "liquidity">]} onValueChange={(value) => setReview((current) => ({ ...current, [field.key]: value }))}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>{field.options.map((option) => <SelectItem value={option} key={option}>{option}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-[#c8d6a7] bg-[#dfeabf] shadow-none xl:row-span-2">
-                    <CardHeader>
-                      <div className="flex items-center justify-between"><div><p className="mb-2 text-[9px] font-extrabold tracking-[0.18em] text-[#58705f]">{t("review.dailyCheck").toUpperCase()}</p><CardTitle className="font-display text-2xl">{t("review.marketPulse")}</CardTitle></div><span className="font-mono text-xs font-bold">{completion}%</span></div>
-                      <Progress value={completion} className="mt-2 h-1.5 bg-white/55" />
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {dailyChecks.map((item) => {
-                        const checked = completedChecks.includes(item);
-                        return (
-                          <label className="flex cursor-pointer items-start gap-3 rounded-xl px-2 py-2 text-xs leading-5 transition hover:bg-white/30" key={item}>
-                            <button
-                              type="button"
-                              className={cn("mt-0.5 grid size-4 shrink-0 place-items-center rounded border", checked ? "border-[#175f47] bg-[#175f47] text-white" : "border-[#8ca293] bg-white/40")}
-                              onClick={() => setCompletedChecks((current) => checked ? current.filter((value) => value !== item) : [...current, item])}
-                              aria-pressed={checked}
-                              aria-label={t(checked ? "review.uncheck" : "review.check", { item })}
-                            >
-                              {checked && <Check className="size-3" />}
-                            </button>
-                            <span className={checked ? "text-[#5f7066] line-through" : "text-[#2f473b]"}>{item}</span>
-                          </label>
-                        );
-                      })}
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-[#d9ddd7] bg-[#fbfaf6] shadow-none">
-                    <CardHeader>
-                      <div className="flex items-center gap-3"><div className="grid size-10 place-items-center rounded-xl bg-[#e1eadf] text-[#175f47]"><TrendingUp className="size-5" /></div><div><CardTitle className="font-display text-2xl">{t("review.implications")}</CardTitle><CardDescription>{t("review.implicationsHelp")}</CardDescription></div></div>
-                    </CardHeader>
-                    <CardContent className="grid gap-5 md:grid-cols-2">
-                      {[
-                        { key: "increaseExposure", label: t("review.increaseExposure") },
-                        { key: "reduceRisk", label: t("review.reduceRisk") },
-                        { key: "favoredSectors", label: t("review.sectorsFavored") },
-                        { key: "pressuredSectors", label: t("review.sectorsPressure") },
-                      ].map((field) => (
-                        <div className="grid gap-2" key={field.key}>
-                          <Label htmlFor={field.key}>{field.label}</Label>
-                          <Textarea id={field.key} className="min-h-24 resize-none bg-white/55" value={review[field.key as keyof ReviewState]} onChange={(event) => setReview((current) => ({ ...current, [field.key]: event.target.value }))} />
-                        </div>
-                      ))}
-                      <div className="grid gap-2 md:col-span-2">
-                        <Label htmlFor="invalidation">{t("review.invalidation")}</Label>
-                        <Input id="invalidation" value={review.invalidation} onChange={(event) => setReview((current) => ({ ...current, invalidation: event.target.value }))} />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-[#d9ddd7] bg-[#fbfaf6] shadow-none xl:col-span-2">
-                    <CardHeader className="flex-row items-center justify-between space-y-0">
-                      <div><CardTitle className="font-display text-2xl">{t("review.releases")}</CardTitle><CardDescription>{t("review.releasesHelp")}</CardDescription></div><CalendarDays className="size-5 text-[#6f7d78]" />
-                    </CardHeader>
-                    <CardContent className="grid gap-3 md:grid-cols-3">
-                      {releaseCalendar.map((release) => (
-                        <div key={release.event} className="flex items-center gap-4 rounded-2xl border border-[#dde0db] bg-white/45 p-4">
-                          <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-[#173f34] text-white"><span className="text-lg font-bold leading-none">{release.day}</span><span className="text-[8px] tracking-[.15em] text-white/60">{release.month}</span></div>
-                          <div><p className="mb-1 text-sm font-semibold">{release.event}</p><Badge variant="outline" className="h-5 text-[8px]">{release.importance}</Badge></div>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <Card className="mt-4 border-[#d9ddd7] bg-[#fbfaf6] shadow-none">
-                  <CardContent className="grid gap-4 p-5 md:grid-cols-[1fr_auto] md:items-center">
-                    <div className="flex gap-3"><Database className="mt-0.5 size-5 shrink-0 text-[#175f47]" /><div><p className="mb-1 text-sm font-semibold">{t("review.pipeline")}</p><p className="mb-0 text-xs leading-5 text-[#6f7d78]">{t("review.pipelineHelp")}</p></div></div>
-                    <Button variant="outline" className="rounded-full" onClick={() => setActiveTab("indicators")}><Settings2 className="size-4" /> {t("review.sourceMap")}</Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="journal" className="m-0 focus-visible:outline-none">
-              <WeeklyHistoryPanel
-                history={reviewHistory}
-                totalScore={total}
-                regimeLabel={regime.label}
-                posture={regime.posture}
-                defaultInvalidation={review.invalidation}
-                onSaveReview={saveWeeklyReview}
-                onUpdateOutcome={reviseOutcome}
-              />
             </TabsContent>
 
             <TabsContent value="senate" className="m-0 focus-visible:outline-none">

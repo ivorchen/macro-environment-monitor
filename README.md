@@ -20,13 +20,7 @@ pnpm dev
 
 Open `http://localhost:3000`.
 
-The configured production origin is [https://salute-pang-bottom.ngrok-free.dev/](https://salute-pang-bottom.ngrok-free.dev/). Start the app on port 3000, then expose it through the reserved ngrok domain:
-
-```bash
-ngrok http --url salute-pang-bottom.ngrok-free.dev 3000
-```
-
-`APP_URL` controls canonical and social metadata. The committed default, `.env.example`, and Docker Compose configuration all use the production ngrok origin; override it in `.env.local` if the domain changes.
+`APP_URL` controls canonical and social metadata. Local development defaults to `http://localhost:3000`; set the real public HTTPS origin in `.env.local` before a production build or Docker Compose rollout. The production Compose stack intentionally fails configuration when `APP_URL` is absent so it cannot publish incorrect canonical URLs.
 
 The interface supports English, Simplified Chinese, and Traditional Chinese. Use the language selector in the header; the choice is saved in browser local storage and the first visit follows the browser language. Dashboard navigation, controls, statuses, help text, and localized dates switch immediately. Provider names, ticker symbols, source payloads, saved user notes, and published AI-report prose remain in their original language to preserve auditability.
 
@@ -45,21 +39,21 @@ The AI market insight is published by a daily ChatGPT/Codex desktop task, so it 
 The Compose stack runs the production Next.js server and a private Redis instance. Redis data is persisted in the `redis-data` Docker volume. Keep `FRED_API_KEY` in `.env.local`; Compose loads that file at runtime without copying it into the application image.
 
 ```bash
-docker compose up --build -d
-docker compose ps
+docker compose --env-file .env.local up --build -d
+docker compose --env-file .env.local ps
 ```
 
 Open `http://localhost:3000`. To inspect the cache or follow the application logs:
 
 ```bash
-docker compose exec redis redis-cli INFO keyspace
-docker compose logs -f app
+docker compose --env-file .env.local exec redis redis-cli INFO keyspace
+docker compose --env-file .env.local logs -f app
 ```
 
 Stop the containers without deleting the Redis volume:
 
 ```bash
-docker compose down
+docker compose --env-file .env.local down
 ```
 
 ## Validate
@@ -121,9 +115,9 @@ Cached APIs are available at `/api/senate-trades`, `/api/senate-trades/recent`, 
 
 - The header theme switch toggles between light and dark modes, persists the choice on the device, and follows the operating-system preference on the first visit.
 - The header language selector switches between English, Simplified Chinese, and Traditional Chinese, persists the selection on the device, and updates the document language and locale-aware dates.
-- The Overview page includes a **What’s new** snapshot curated from public posts visible in the operator’s signed-in X followed feed. It focuses on U.S. stocks and AI, preserves attribution and direct post links, and explicitly labels the content as unverified, browser-assisted source material. The web application does not receive X credentials and the snapshot does not refresh automatically.
+- The Overview page includes a Redis-backed **Market News** feed extracted from citations in the weekday `Daily Tech & Market Brief` and `US Stocks Macro Monitoring` reports. A local Codex automation reads the latest completed task outputs after both 8:00 AM Toronto reports, writes a strict JSON handoff, and runs `pnpm news:publish`. The publisher stores the full report text and a canonicalized, deduplicated feed; entries without a real HTTPS source URL are rejected rather than invented. Both report and feed fallback keys expire after eight days.
 - The headline score is a live 0–100 reading, not a persisted sample number. Its six component tiles disclose their current score and data coverage.
-- Weekly scorecard status chips are read-only summaries derived from the live component model; unmodeled pillars remain visibly neutral.
+- Weekly scorecard status chips are read-only summaries derived from the live component model; unmodeled pillars remain explicitly unavailable rather than appearing neutral.
 - The dedicated **Sectors** workspace compares all eleven Select Sector SPDR ETFs against SPY using a separate, disclosed price-behavior model.
 - The market snapshot presents nine cards in a maximum three-column grid: SPX, Nasdaq 100, equal weight, 10-year real yield, high-yield OAS, VIX, gold, JNK, and Bitcoin.
 - The regime summary and AI market insight use separate full-width rows on large screens, avoiding stretched side-by-side cards.

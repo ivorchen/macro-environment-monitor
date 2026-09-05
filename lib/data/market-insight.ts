@@ -1,9 +1,6 @@
 import type { DailyInsightStore } from "./cache";
 
-export type DailyMarketInsight = {
-  reportDate: string;
-  generatedAt: string;
-  model: string;
+export type MarketInsightContent = {
   brief: string;
   detailed: {
     headline: string;
@@ -12,6 +9,13 @@ export type DailyMarketInsight = {
     risks: string[];
     watchNext: string[];
   };
+};
+
+export type DailyMarketInsight = MarketInsightContent & {
+  reportDate: string;
+  generatedAt: string;
+  model: string;
+  translations?: Partial<Record<"zh-CN" | "zh-TW", MarketInsightContent>>;
 };
 
 export type DailyMarketInsightResponse = {
@@ -61,15 +65,34 @@ function requireTextList(value: unknown, field: string, minimum: number) {
   return value.map((item, index) => requireText(item, `${field}[${index}]`));
 }
 
+function validateContent(value: unknown, field = ""): MarketInsightContent {
+  if (!value || typeof value !== "object") {
+    throw new MarketInsightError(`The published report has invalid ${field || "content"}.`, "invalid-report");
+  }
+  const content = value as Record<string, unknown>;
+  if (!content.detailed || typeof content.detailed !== "object") {
+    throw new MarketInsightError(`The published report has no ${field ? `${field} ` : ""}detailed analysis.`, "invalid-report");
+  }
+  const detailed = content.detailed as Record<string, unknown>;
+  const prefix = field ? `${field}.` : "";
+  return {
+    brief: requireText(content.brief, `${prefix}brief`),
+    detailed: {
+      headline: requireText(detailed.headline, `${prefix}detailed.headline`),
+      overview: requireText(detailed.overview, `${prefix}detailed.overview`),
+      keySignals: requireTextList(detailed.keySignals, `${prefix}detailed.keySignals`, 3),
+      risks: requireTextList(detailed.risks, `${prefix}detailed.risks`, 2),
+      watchNext: requireTextList(detailed.watchNext, `${prefix}detailed.watchNext`, 2),
+    },
+  };
+}
+
 function validatePublishedInsight(value: unknown): DailyMarketInsight {
   if (!value || typeof value !== "object") {
     throw new MarketInsightError("The published report is not an object.", "invalid-report");
   }
   const report = value as Record<string, unknown>;
-  if (!report.detailed || typeof report.detailed !== "object") {
-    throw new MarketInsightError("The published report has no detailed analysis.", "invalid-report");
-  }
-  const detailed = report.detailed as Record<string, unknown>;
+  const content = validateContent(report);
   const reportDate = requireText(report.reportDate, "reportDate");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(reportDate)) {
     throw new MarketInsightError("The published report has an invalid reportDate.", "invalid-report");
@@ -83,14 +106,12 @@ function validatePublishedInsight(value: unknown): DailyMarketInsight {
     reportDate,
     generatedAt,
     model: requireText(report.model, "model"),
-    brief: requireText(report.brief, "brief"),
-    detailed: {
-      headline: requireText(detailed.headline, "detailed.headline"),
-      overview: requireText(detailed.overview, "detailed.overview"),
-      keySignals: requireTextList(detailed.keySignals, "detailed.keySignals", 3),
-      risks: requireTextList(detailed.risks, "detailed.risks", 2),
-      watchNext: requireTextList(detailed.watchNext, "detailed.watchNext", 2),
-    },
+    ...content,
+    translations: report.translations && typeof report.translations === "object"
+      ? Object.fromEntries(Object.entries(report.translations as Record<string, unknown>)
+        .filter(([locale]) => locale === "zh-CN" || locale === "zh-TW")
+        .map(([locale, localized]) => [locale, validateContent(localized, `translations.${locale}`)]))
+      : undefined,
   };
 }
 

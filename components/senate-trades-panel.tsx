@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ExternalLink, LoaderCircle, RefreshCw, Search } from "lucide-react";
+import { AlertTriangle, ExternalLink, LoaderCircle, Search } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import type {
   SenateWindow,
 } from "@/lib/data/senate-trades";
 import { SENATE_WINDOWS } from "@/lib/data/senate-trades";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, type MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 function formatDate(value: string | null, locale: string, unavailable: string) {
@@ -46,6 +46,13 @@ function partyTone(party: SenateParty) {
   return "border-[#dfcfaa] bg-[#f5ecd8] text-[#805c22]";
 }
 
+function partyLabel(party: SenateParty, t: (key: MessageKey) => string) {
+  if (party === "Democratic") return t("senate.democratic");
+  if (party === "Republican") return t("senate.republican");
+  if (party === "Independent/Other") return t("senate.independent");
+  return party;
+}
+
 function SourceLink({ transaction }: { transaction: NormalizedSenateTransaction }) {
   const { t } = useI18n();
   if (!transaction.filingUrl) return <span className="text-[#8b9691]">{t("senate.noLink")}</span>;
@@ -61,7 +68,6 @@ export function SenateTradesPanel() {
   const [windowValue, setWindowValue] = useState<SenateWindow>("90D");
   const [payload, setPayload] = useState<SenateTradesResponse | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [reloadToken, setReloadToken] = useState(0);
   const [party, setParty] = useState("all");
   const [owner, setOwner] = useState("all");
   const [transactionType, setTransactionType] = useState("all");
@@ -87,7 +93,7 @@ export function SenateTradesPanel() {
     return () => {
       active = false;
     };
-  }, [reloadToken, windowValue]);
+  }, [windowValue]);
 
   const filteredTransactions = useMemo(() => (payload?.transactions ?? []).filter((transaction) =>
     (party === "all" || transaction.partyAtTrade === party)
@@ -129,12 +135,6 @@ export function SenateTradesPanel() {
               </button>
             ))}
           </div>
-          <Button variant="outline" className="rounded-full" onClick={() => {
-            setStatus("loading");
-            setReloadToken((value) => value + 1);
-          }}>
-            <RefreshCw className={cn("size-4", status === "loading" && "animate-spin")} /> {t("common.refresh")}
-          </Button>
         </div>
       </div>
 
@@ -200,14 +200,14 @@ export function SenateTradesPanel() {
                   <table className="w-full min-w-[780px] text-left text-xs">
                     <thead className="border-y border-[#dfe2dd] text-[8px] font-bold tracking-[.12em] text-[#74817b]">
                       <tr>
-                        <th className="py-3 pr-3">TICKER / COMPANY</th>
-                        <th className="px-3">DEM</th>
-                        <th className="px-3">REP</th>
-                        <th className="px-3">TOTAL</th>
-                        <th className="px-3">EVENTS</th>
-                        <th className="px-3">DISCLOSED RANGE</th>
-                        <th className="px-3">LATEST TRADE</th>
-                        <th className="pl-3">FRESHNESS</th>
+                        <th className="py-3 pr-3">{t("senate.tableTickerCompany").toUpperCase()}</th>
+                        <th className="px-3">{t("senate.tableDem").toUpperCase()}</th>
+                        <th className="px-3">{t("senate.tableRep").toUpperCase()}</th>
+                        <th className="px-3">{t("senate.tableTotal").toUpperCase()}</th>
+                        <th className="px-3">{t("senate.tableEvents").toUpperCase()}</th>
+                        <th className="px-3">{t("senate.tableRange").toUpperCase()}</th>
+                        <th className="px-3">{t("senate.tableLatestTrade").toUpperCase()}</th>
+                        <th className="pl-3">{t("senate.tableFreshness").toUpperCase()}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#e4e6e2]">
@@ -225,7 +225,7 @@ export function SenateTradesPanel() {
                           <td className="px-3">{item.purchaseEvents}</td>
                           <td className="px-3 font-mono text-[10px]">{item.amountRange.display}</td>
                           <td className="px-3">{formatDate(item.latestTradeDate, intlLocale, t("common.unavailable"))}</td>
-                          <td className="pl-3"><Badge variant="outline" className={item.freshness === "fresh" ? "border-[#a9c6b8] text-[#155b43]" : "border-[#dfcfaa] text-[#805c22]"}>{item.freshness}</Badge></td>
+                          <td className="pl-3"><Badge variant="outline" className={item.freshness === "fresh" ? "border-[#a9c6b8] text-[#155b43]" : "border-[#dfcfaa] text-[#805f2a]"}>{t(item.freshness === "fresh" ? "common.fresh" : "common.stale")}</Badge></td>
                         </tr>
                       ))}
                     </tbody>
@@ -246,7 +246,7 @@ export function SenateTradesPanel() {
                 {(["Democratic", "Republican", "Independent/Other"] as const).map((partyName) => (
                   <div key={partyName}>
                     <div className="mb-2 flex items-center justify-between">
-                      <Badge variant="outline" className={partyTone(partyName)}>{partyName}</Badge>
+                      <Badge variant="outline" className={partyTone(partyName)}>{partyLabel(partyName, t)}</Badge>
                       <span className="text-[9px] text-[#68796e]">{t("senate.topTen")}</span>
                     </div>
                     <ol className="space-y-1.5">
@@ -280,7 +280,7 @@ export function SenateTradesPanel() {
               <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {tickerTransactions.map((transaction) => (
                   <div key={transaction.sourceId} className="rounded-2xl border border-[#ced9d1] bg-white/45 p-4 text-xs">
-                    <div className="flex items-center justify-between gap-2"><strong>{transaction.senatorName}</strong><Badge variant="outline" className={partyTone(transaction.partyAtTrade)}>{transaction.partyAtTrade}</Badge></div>
+                    <div className="flex items-center justify-between gap-2"><strong>{transaction.senatorName}</strong><Badge variant="outline" className={partyTone(transaction.partyAtTrade)}>{partyLabel(transaction.partyAtTrade, t)}</Badge></div>
                     <p className="mt-2 text-[#65756d]">{transaction.owner} · {transaction.transactionType} · {transaction.amountRange.display}</p>
                     <p className="mt-2 text-[10px] text-[#718079]">{t("senate.tradeDisclosure", { trade: formatDate(transaction.transactionDate, intlLocale, t("common.unavailable")), disclosed: formatDate(transaction.disclosureDate, intlLocale, t("common.unavailable")), days: transaction.disclosureLagDays })}</p>
                     <div className="mt-3"><SourceLink transaction={transaction} /></div>
@@ -321,18 +321,18 @@ export function SenateTradesPanel() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[1050px] text-left text-xs">
                   <thead className="border-y border-[#dfe2dd] text-[8px] font-bold tracking-[.12em] text-[#74817b]">
-                    <tr><th className="py-3 pr-3">DISCLOSED / TRADE</th><th className="px-3">SENATOR / PARTY</th><th className="px-3">OWNER</th><th className="px-3">TICKER / ASSET</th><th className="px-3">TYPE</th><th className="px-3">AMOUNT RANGE</th><th className="px-3">LAG</th><th className="pl-3">SOURCE</th></tr>
+                    <tr><th className="py-3 pr-3">{t("senate.tableDisclosedTrade").toUpperCase()}</th><th className="px-3">{t("senate.tableSenatorParty").toUpperCase()}</th><th className="px-3">{t("senate.owner").toUpperCase()}</th><th className="px-3">{t("senate.tableTickerAsset").toUpperCase()}</th><th className="px-3">{t("senate.tableType").toUpperCase()}</th><th className="px-3">{t("senate.tableRange").toUpperCase()}</th><th className="px-3">{t("senate.tableLag").toUpperCase()}</th><th className="pl-3">{t("common.source").toUpperCase()}</th></tr>
                   </thead>
                   <tbody className="divide-y divide-[#e4e6e2]">
                     {filteredTransactions.slice(0, 100).map((transaction) => (
                       <tr key={transaction.sourceId}>
                         <td className="py-3 pr-3"><strong>{formatDate(transaction.disclosureDate, intlLocale, t("common.unavailable"))}</strong><span className="mt-0.5 block text-[9px] text-[#7d8983]">{t("senate.transaction")} {formatDate(transaction.transactionDate, intlLocale, t("common.unavailable"))}</span></td>
-                        <td className="px-3"><span className="font-semibold">{transaction.senatorName}</span><Badge variant="outline" className={cn("ml-2", partyTone(transaction.partyAtTrade))}>{transaction.partyAtTrade}</Badge></td>
+                        <td className="px-3"><span className="font-semibold">{transaction.senatorName}</span><Badge variant="outline" className={cn("ml-2", partyTone(transaction.partyAtTrade))}>{partyLabel(transaction.partyAtTrade, t)}</Badge></td>
                         <td className="px-3">{transaction.owner}</td>
                         <td className="px-3"><button className="font-mono font-bold text-[#175f47] hover:underline" onClick={() => transaction.canonicalTicker && setSelectedTicker(transaction.canonicalTicker)}>{transaction.canonicalTicker ?? "—"}</button><span className="mt-0.5 block max-w-56 truncate text-[9px] text-[#7d8983]">{transaction.assetName} · {transaction.assetType}</span></td>
-                        <td className="px-3">{transaction.transactionType}{transaction.amendmentStatus === "amended" && <Badge variant="outline" className="ml-1 border-[#dfcfaa] text-[#805c22]">amended</Badge>}</td>
+                        <td className="px-3">{transaction.transactionType}{transaction.amendmentStatus === "amended" && <Badge variant="outline" className="ml-1 border-[#dfcfaa] text-[#805c22]">{t("senate.amended")}</Badge>}</td>
                         <td className="px-3 font-mono text-[10px]">{transaction.amountRange.display}</td>
-                        <td className="px-3">{transaction.disclosureLagDays}d</td>
+                        <td className="px-3">{t("senate.daysShort", { count: transaction.disclosureLagDays })}</td>
                         <td className="pl-3"><SourceLink transaction={transaction} /></td>
                       </tr>
                     ))}

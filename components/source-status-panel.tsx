@@ -88,7 +88,7 @@ export function SourceStatusPanel() {
         <div className="flex items-center gap-2">
           {payload && (
             <span className="hidden text-[10px] text-[#6f7d78] sm:inline">
-              {payload.summary.fresh} fresh · {payload.summary.stale} stale · {payload.summary.unavailable} unavailable
+              {payload.summary.fresh} {t("common.fresh").toLowerCase()} · {payload.summary.stale} {t("common.stale").toLowerCase()} · {payload.summary.unavailable} {t("common.unavailable").toLowerCase()}
             </span>
           )}
           <Button
@@ -124,7 +124,7 @@ export function SourceStatusPanel() {
           {Array.from({ length: 8 }, (_, index) => (
             <Card key={index} className="border-[#d9ddd7] bg-[#fbfaf6] shadow-none">
               <CardContent className="grid min-h-36 place-items-center p-5 text-[#86918c]">
-                <LoaderCircle className="size-5 animate-spin" aria-label="Loading source" />
+                <LoaderCircle className="size-5 animate-spin" aria-label={t("source.loading")} />
               </CardContent>
             </Card>
           ))}
@@ -163,7 +163,7 @@ export function SourceStatusPanel() {
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 font-semibold text-[#175f47] hover:underline"
-                    aria-label={`Open source for ${reading.indicator}`}
+                    aria-label={t("source.openFor", { indicator: reading.indicator })}
                   >
                     {t("common.source")} <ExternalLink className="size-3" />
                   </a>
@@ -185,10 +185,10 @@ export function SourceStatusPanel() {
         )}
       </p>
       <p className="mt-1 text-[9px] leading-4 text-[#87928d]">
-        This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis.
+        {t("source.fredDisclaimer")}
       </p>
       <p className="mt-1 text-[9px] leading-4 text-[#87928d]">
-        Nasdaq ETF readings use the provider&apos;s public market-activity data and are cached for six hours.
+        {t("source.nasdaqDisclaimer")}
       </p>
     </section>
   );

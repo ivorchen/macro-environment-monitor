@@ -6,7 +6,7 @@ The task should retrieve `/api/indicators`, `/api/market-snapshot`, `/api/financ
 
 Use the New York calendar date and this exact structure:
 
-```markdown
+````markdown
 ---
 reportDate: 2026-08-20
 generatedAt: 2026-08-20T11:30:00.000Z
@@ -32,9 +32,35 @@ A concise macroeconomic synthesis grounded only in the retrieved dashboard readi
 ## What to watch next
 - Two to four specific future observations.
 - Keep each item concise and testable.
-```
 
-The publisher rejects missing, reordered, empty, or incorrectly sized sections before connecting to Redis. It writes the structured JSON to a 48-hour dated key and an eight-day `latest` fallback key. Run a validation without writing to Redis with:
+## Translations
+```json
+{
+  "zh-CN": {
+    "brief": "完整的简体中文简报",
+    "detailed": {
+      "headline": "简体中文标题",
+      "overview": "简体中文概览",
+      "keySignals": ["三至五项完整翻译"],
+      "risks": ["二至四项完整翻译"],
+      "watchNext": ["二至四项完整翻译"]
+    }
+  },
+  "zh-TW": {
+    "brief": "完整的繁體中文簡報",
+    "detailed": {
+      "headline": "繁體中文標題",
+      "overview": "繁體中文概覽",
+      "keySignals": ["三至五項完整翻譯"],
+      "risks": ["二至四項完整翻譯"],
+      "watchNext": ["二至四項完整翻譯"]
+    }
+  }
+}
+```
+````
+
+The `Translations` JSON must preserve every fact, number, qualification, and list item from the English source. The publisher rejects missing languages, empty translations, reordered sections, or incorrectly sized lists before connecting to Redis. It writes the structured JSON to a 48-hour dated key and an eight-day `latest` fallback key. Run a validation without writing to Redis with:
 
 ```bash
 pnpm insight:publish -- reports/market-insights/YYYY-MM-DD.md --dry-run

@@ -9,6 +9,7 @@ import { createClient } from "redis";
 const DAILY_TTL_SECONDS = 48 * 60 * 60;
 const LATEST_TTL_SECONDS = 8 * 24 * 60 * 60;
 const SECTION_NAMES = ["Brief", "Overview", "Key signals", "Risks", "What to watch next"];
+const TRANSLATIONS_HEADING = "## Translations";
 
 function fail(message) {
   throw new Error(`Invalid market-insight Markdown: ${message}`);
@@ -52,6 +53,32 @@ function bulletList(lines, section, minimum, maximum) {
   return items;
 }
 
+function validateTranslatedContent(value, locale) {
+  if (!value || typeof value !== "object") fail(`missing ${locale} translation.`);
+  const detailed = value.detailed;
+  if (!detailed || typeof detailed !== "object") fail(`missing ${locale} detailed translation.`);
+  const text = (item, field) => {
+    if (typeof item !== "string" || !item.trim()) fail(`${locale}.${field} must not be empty.`);
+    return item.trim();
+  };
+  const list = (items, field, minimum, maximum) => {
+    if (!Array.isArray(items) || items.length < minimum || items.length > maximum) {
+      fail(`${locale}.${field} must contain ${minimum}-${maximum} items.`);
+    }
+    return items.map((item, index) => text(item, `${field}[${index}]`));
+  };
+  return {
+    brief: text(value.brief, "brief"),
+    detailed: {
+      headline: text(detailed.headline, "detailed.headline"),
+      overview: text(detailed.overview, "detailed.overview"),
+      keySignals: list(detailed.keySignals, "detailed.keySignals", 3, 5),
+      risks: list(detailed.risks, "detailed.risks", 2, 4),
+      watchNext: list(detailed.watchNext, "detailed.watchNext", 2, 4),
+    },
+  };
+}
+
 export function parseMarketInsightMarkdown(source) {
   const { metadata, body } = parseFrontmatter(source);
   const reportDate = requiredMetadata(metadata, "reportDate");
@@ -81,14 +108,31 @@ export function parseMarketInsightMarkdown(source) {
 
   const sectionLines = (position) => {
     const start = sectionIndexes[position] + 1;
-    const end = sectionIndexes[position + 1] ?? lines.length;
+    const translationsIndex = lines.indexOf(TRANSLATIONS_HEADING);
+    const end = sectionIndexes[position + 1] ?? (translationsIndex === -1 ? lines.length : translationsIndex);
     return lines.slice(start, end);
   };
+
+  const translationsIndex = lines.indexOf(TRANSLATIONS_HEADING);
+  if (translationsIndex === -1) fail("missing Translations section.");
+  const translationSource = lines.slice(translationsIndex + 1).join("\n").match(/```json\s*([\s\S]*?)\s*```/);
+  if (!translationSource) fail("Translations must contain a JSON code block.");
+  let translationValue;
+  try {
+    translationValue = JSON.parse(translationSource[1]);
+  } catch {
+    fail("Translations JSON is invalid.");
+  }
+  const translations = Object.fromEntries(["zh-CN", "zh-TW"].map((locale) => [
+    locale,
+    validateTranslatedContent(translationValue?.[locale], locale),
+  ]));
 
   return {
     reportDate,
     generatedAt: new Date(generatedAt).toISOString(),
     model,
+    translations,
     brief: paragraph(sectionLines(0), "Brief"),
     detailed: {
       headline,

@@ -30,15 +30,15 @@ export type SectorViewResponse = {
 
 const SECTORS = [
   ["technology", "XLK", "Technology"],
-  ["communication", "XLC", "Communication services"],
-  ["consumer-discretionary", "XLY", "Consumer discretionary"],
+  ["communication", "XLC", "Communication Services"],
+  ["consumer-discretionary", "XLY", "Consumer Discretionary"],
   ["financials", "XLF", "Financials"],
   ["industrials", "XLI", "Industrials"],
   ["energy", "XLE", "Energy"],
   ["materials", "XLB", "Materials"],
-  ["real-estate", "XLRE", "Real estate"],
-  ["health-care", "XLV", "Health care"],
-  ["consumer-staples", "XLP", "Consumer staples"],
+  ["real-estate", "XLRE", "Real Estate"],
+  ["health-care", "XLV", "Health Care"],
+  ["consumer-staples", "XLP", "Consumer Staples"],
   ["utilities", "XLU", "Utilities"],
 ] as const;
 
@@ -155,5 +155,13 @@ export async function loadSectorView(options: {
     },
     shouldCache: (value) => value.sectors.some((sector) => sector.score !== null),
   });
-  return { ...result.value, cache: { backend: options.cache?.backend ?? "none", status: result.status } };
+  const namesById = new Map<string, string>(SECTORS.map(([id, , name]) => [id, name]));
+  return {
+    ...result.value,
+    sectors: result.value.sectors.map((sector) => ({
+      ...sector,
+      name: namesById.get(sector.id) ?? sector.name,
+    })),
+    cache: { backend: options.cache?.backend ?? "none", status: result.status },
+  };
 }

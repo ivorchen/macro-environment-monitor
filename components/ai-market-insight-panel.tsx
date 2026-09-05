@@ -41,10 +41,9 @@ function ReportList({ title, items }: { title: string; items: string[] }) {
 }
 
 export function AiMarketInsightPanel() {
-  const { intlLocale, t } = useI18n();
+  const { intlLocale, locale, t } = useI18n();
   const [payload, setPayload] = useState<DailyMarketInsightResponse | null>(null);
   const [status, setStatus] = useState<InsightStatus>("loading");
-  const [error, setError] = useState("The daily insight could not be loaded.");
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -60,11 +59,8 @@ export function AiMarketInsightPanel() {
           setPayload(body as DailyMarketInsightResponse);
           setStatus("ready");
         }
-      } catch (requestError) {
-        if (active) {
-          setError(requestError instanceof Error ? requestError.message : "The daily insight could not be loaded.");
-          setStatus("error");
-        }
+      } catch {
+        if (active) setStatus("error");
       }
     };
 
@@ -75,6 +71,7 @@ export function AiMarketInsightPanel() {
   }, []);
 
   const insight = payload?.insight;
+  const content = insight && locale !== "en" ? insight.translations?.[locale] ?? insight : insight;
 
   return (
     <Card className="ai-insight-card flex min-h-[300px] flex-col border-[#c7d7a0] bg-[#dcebb4] shadow-none xl:min-h-0">
@@ -114,20 +111,17 @@ export function AiMarketInsightPanel() {
               <CardTitle className="font-display text-[25px] font-medium leading-[1.15] tracking-[-0.03em]">
                 {t("ai.unavailable")}
               </CardTitle>
-              <p className="mt-3 text-xs leading-5 text-[#ff9a9a]">{error}</p>
+              <p className="mt-3 text-xs leading-5 text-[#ff9a9a]">{t("ai.errorHelp")}</p>
             </div>
-            <p className="text-[9px] leading-4 text-[#a8b3c1]">
-              {t("ai.errorHelp")}
-            </p>
           </div>
         )}
 
-        {status === "ready" && insight && (
+        {status === "ready" && insight && content && (
           <>
             <div className="flex flex-1 flex-col justify-between gap-8 xl:gap-5">
               <div>
                 <CardTitle className="font-display text-[25px] font-medium leading-[1.15] tracking-[-0.03em]">
-                  {insight.brief}
+                  {content.brief}
                 </CardTitle>
                 <p className="mt-4 text-[9px] text-[#9ba7b6]">
                   {t("ai.generated", { value: formatGeneratedAt(insight.generatedAt, intlLocale) })} · {payload.cache.status === "previous-day" ? t("ai.previous") : t("ai.redis")}
@@ -157,20 +151,20 @@ export function AiMarketInsightPanel() {
                   {t("ai.details", { date: insight.reportDate }).toUpperCase()}
                 </p>
                 <h3 className="font-display text-3xl font-medium leading-tight tracking-[-0.03em]">
-                  {insight.detailed.headline}
+                  {content.detailed.headline}
                 </h3>
                 <p className="pt-2 text-xs leading-5 text-[#9ba7b6]">
                   {t("ai.generatedHelp")}
                 </p>
 
                 <div className="mt-6 space-y-8">
-                <p className="text-[15px] leading-7 text-[#d4dbe5]">{insight.detailed.overview}</p>
+                <p className="text-[15px] leading-7 text-[#d4dbe5]">{content.detailed.overview}</p>
                 <div className="grid gap-8 border-t border-[#30394a] pt-7 md:grid-cols-2">
-                  <ReportList title={t("ai.keySignals")} items={insight.detailed.keySignals} />
-                  <ReportList title={t("ai.risks")} items={insight.detailed.risks} />
+                  <ReportList title={t("ai.keySignals")} items={content.detailed.keySignals} />
+                  <ReportList title={t("ai.risks")} items={content.detailed.risks} />
                 </div>
                 <div className="border-t border-[#30394a] pt-7">
-                  <ReportList title={t("ai.watch")} items={insight.detailed.watchNext} />
+                  <ReportList title={t("ai.watch")} items={content.detailed.watchNext} />
                 </div>
                 <p className="border-t border-[#30394a] pt-5 text-[9px] leading-4 text-[#8f9baa]">
                   {t("ai.disclaimer", { model: insight.model })}

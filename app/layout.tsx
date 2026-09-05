@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 const productionUrl = new URL(
-  process.env.APP_URL ?? "https://salute-pang-bottom.ngrok-free.dev/",
+  process.env.APP_URL ?? "http://localhost:3000",
 );
 
 export const metadata: Metadata = {
@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   description: "A disciplined weekly macro scorecard for U.S. equity investors.",
   alternates: {
     canonical: "/",
+  },
+  icons: {
+    icon: "/favicon.svg",
   },
   openGraph: {
     title: "Macro Environment Monitor",
