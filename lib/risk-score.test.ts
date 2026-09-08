@@ -30,6 +30,7 @@ describe("macro risk scoring", () => {
       reading("labor-payrolls", 180), reading("labor-unemployment", 3.7),
       reading("credit-hy-spreads", 2.8), reading("credit-regional-banks", 5),
       reading("breadth-equal-weight", 5), reading("breadth-small-large", 4), reading("breadth-cyclicals-defensives", 3),
+      reading("growth-industrial-production-yoy", 4), reading("earnings-reported-profits-yoy", 15), reading("positioning-vix", 12),
     ];
     const result = calculateRiskScore({
       readings,
@@ -47,7 +48,7 @@ describe("macro risk scoring", () => {
     });
     expect(result.score).toBeGreaterThan(70);
     expect(result.coverage).toBe(100);
-    expect(result.components).toHaveLength(6);
+    expect(result.components).toHaveLength(9);
   });
 
   it("reweights available components and reports reduced coverage", () => {
@@ -63,5 +64,23 @@ describe("macro risk scoring", () => {
     expect(riskZone(81)).toBe("euphoric");
     expect(componentScoreToPillarScore(79)).toBe(1);
     expect(componentScoreToPillarScore(19)).toBe(-2);
+  });
+
+  it("keeps missing proxies unavailable and counts all nine pillars in coverage", () => {
+    const result = calculateRiskScore({ readings: [] });
+    expect(result.score).toBeNull();
+    expect(result.coverage).toBe(0);
+    expect(result.components).toHaveLength(9);
+    expect(result.components.reduce((sum, c) => sum + c.weight, 0)).toBe(100);
+    expect(result.components.every(c => c.score === null)).toBe(true);
+  });
+
+  it("scores proxy direction and preserves source dates without inventing positions", () => {
+    const result = calculateRiskScore({ readings: [reading("growth-industrial-production-yoy", -5), reading("earnings-reported-profits-yoy", 20), reading("positioning-vix", 40)] });
+    expect(result.components.find(c => c.id === "growth")?.score).toBe(10);
+    expect(result.components.find(c => c.id === "earnings")?.score).toBe(90);
+    expect(result.components.find(c => c.id === "positioning")?.score).toBe(10);
+    expect(result.components.find(c => c.id === "positioning")?.rationale).toContain("not measured investor positioning");
+    expect(result.components[0].observationDate).toBe("2026-09-01");
   });
 });

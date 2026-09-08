@@ -2,9 +2,12 @@ name: macro-environment-monitor
 
 services:
   app:
+    profiles: [full-stack]
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        APP_URL: ${APP_URL:?Set APP_URL to the public production origin}
     env_file:
       - path: .env.local
         required: false

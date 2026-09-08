@@ -6,6 +6,10 @@
     "node": ">=22 <25"
   },
   "scripts": {
+    "redis:up": "docker compose --env-file .env.local up -d --wait redis",
+    "alpha:start": "pnpm redis:up && pnpm build && pnpm start --hostname 127.0.0.1",
+    "alpha:tunnel": "ngrok http http://127.0.0.1:3000 --url https://salute-pang-bottom.ngrok-free.dev",
+    "moments:prepare": "node scripts/prepare-moments.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -47,6 +51,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "jsdom": "^26.1.0",
+    "playwright": "^1.62.1",
     "shadcn": "^4.8.3",
     "tailwindcss": "^4.2.1",
     "typescript": "^5",

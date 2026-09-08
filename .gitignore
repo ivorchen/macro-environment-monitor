@@ -48,3 +48,6 @@ yarn-error.log*
 # generated scheduled-task market-news bundles
 /reports/market-news/*.json
 !/reports/market-news/README.md
+
+# Private daily screenshots and social image packages
+/reports/moments/

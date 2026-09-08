@@ -40,7 +40,7 @@ export async function loadIndicatorReadings(
   const [fredResult, blsResult, beaResult, censusResult, treasuryResult, nasdaqResult, polymarketResult] = await Promise.all([
     loadCachedProvider({
       cache: options.fredApiKey ? options.cache : undefined,
-      cacheKey: "readings:v1:fred",
+      cacheKey: "readings:v2:fred",
       ttlSeconds: PROVIDER_CACHE_TTL_SECONDS.fred,
       loader: () => fetchFredReadings(fredSources, options.fredApiKey, options),
       shouldCache: (readings) => readings.every((reading) => reading.freshness !== "unavailable"),

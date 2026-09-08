@@ -23,6 +23,10 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
+ARG APP_URL=http://localhost:3000
+ENV APP_URL=$APP_URL
+ENV NEXT_STANDALONE=1
+
 RUN pnpm build
 
 FROM node:22-alpine AS runner

@@ -5,7 +5,7 @@ import type { Pillar, Score, Trend } from "./macro";
 export type RiskZone = "defensive" | "cautious" | "mixed" | "supportive" | "euphoric";
 
 export type RiskScoreComponent = {
-  id: "liquidity" | "rates" | "inflation" | "labor" | "credit" | "breadth";
+  id: "liquidity" | "rates" | "inflation" | "labor" | "credit" | "breadth" | "growth" | "earnings" | "positioning";
   weight: number;
   score: number | null;
   contribution: number | null;
@@ -17,7 +17,7 @@ export type RiskScoreComponent = {
 
 export type RiskScoreResponse = {
   generatedAt: string;
-  methodologyVersion: "macro-risk-v1";
+  methodologyVersion: "macro-risk-v2-alpha";
   score: number | null;
   zone: RiskZone | "unavailable";
   coverage: number;
@@ -92,9 +92,19 @@ export function calculateRiskScore(options: {
   const nfci = options.nfci?.freshness !== "unavailable" ? options.nfci?.statistics : null;
 
   const components: RiskScoreComponent[] = [
+    ...([
+      { id: "growth", input: "growth-industrial-production-yoy", low: -5, high: 5, from: 10, to: 90, explanation: "Industrial production YoY proxy; not a comprehensive GDP forecast." },
+      { id: "earnings", input: "earnings-reported-profits-yoy", low: -20, high: 20, from: 10, to: 90, explanation: "Reported economy-wide after-tax profit growth proxy; lagged quarterly data, not forward S&P 500 EPS." },
+      { id: "positioning", input: "positioning-vix", low: 12, high: 40, from: 75, to: 10, explanation: "VIX risk-sentiment proxy only; not measured investor positioning or a contrarian buy signal." },
+    ] as const).map((rule) => {
+      const input = available(readings, rule.input);
+      return component({ id: rule.id, weight: 10,
+        values: [input ? linearScore(input.value!, rule.low, rule.high, rule.from, rule.to) : undefined],
+        dates: [input?.observationDate], expected: 1, rationale: () => rule.explanation });
+    }),
     component({
       id: "liquidity",
-      weight: 20,
+      weight: 15,
       values: [
         nfci ? linearScore(nfci.latest.value, -0.8, 0.8, 92, 8) : undefined,
         nfci?.fourWeekChange === null || nfci?.fourWeekChange === undefined
@@ -107,7 +117,7 @@ export function calculateRiskScore(options: {
     }),
     component({
       id: "rates",
-      weight: 20,
+      weight: 15,
       values: [
         realYield ? linearScore(realYield.value!, 0, 3, 88, 12) : undefined,
         twoYear && tenYear ? linearScore(tenYear.value! - twoYear.value!, -0.75, 1.25, 20, 82) : undefined,
@@ -118,7 +128,7 @@ export function calculateRiskScore(options: {
     }),
     component({
       id: "inflation",
-      weight: 15,
+      weight: 10,
       values: [
         coreCpi ? linearScore(coreCpi.value!, 2, 4.5, 82, 12) : undefined,
         corePce ? linearScore(corePce.value!, 2, 4.5, 82, 12) : undefined,
@@ -129,7 +139,7 @@ export function calculateRiskScore(options: {
     }),
     component({
       id: "labor",
-      weight: 15,
+      weight: 10,
       values: [
         payrolls ? linearScore(payrolls.value!, -100, 250, 10, 88) : undefined,
         unemployment ? linearScore(unemployment.value!, 3.4, 5.2, 82, 18) : undefined,
@@ -140,7 +150,7 @@ export function calculateRiskScore(options: {
     }),
     component({
       id: "credit",
-      weight: 15,
+      weight: 10,
       values: [
         highYield ? linearScore(highYield.value!, 2.5, 8, 88, 5) : undefined,
         regionalBanks ? linearScore(regionalBanks.value!, -10, 10, 12, 88) : undefined,
@@ -151,7 +161,7 @@ export function calculateRiskScore(options: {
     }),
     component({
       id: "breadth",
-      weight: 15,
+      weight: 10,
       values: [equalWeight, smallLarge, cyclicals].map((reading) => reading ? linearScore(reading.value!, -10, 10, 10, 90) : undefined),
       dates: [equalWeight?.observationDate, smallLarge?.observationDate, cyclicals?.observationDate],
       expected: 3,
@@ -172,7 +182,7 @@ export function calculateRiskScore(options: {
 
   return {
     generatedAt: options.generatedAt ?? new Date().toISOString(),
-    methodologyVersion: "macro-risk-v1",
+    methodologyVersion: "macro-risk-v2-alpha",
     score,
     zone: score === null ? "unavailable" : riskZone(score),
     coverage: round((usedInputs / expectedInputs) * 100),

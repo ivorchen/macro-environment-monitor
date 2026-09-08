@@ -12,7 +12,7 @@ const allowedDevOrigins = (() => {
 const nextConfig: NextConfig = {
   allowedDevOrigins,
   reactStrictMode: true,
-  output: "standalone",
+  output: process.env.NEXT_STANDALONE === "1" ? "standalone" : undefined,
   outputFileTracingRoot: process.cwd(),
   turbopack: {
     root: process.cwd(),

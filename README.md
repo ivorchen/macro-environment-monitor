@@ -36,18 +36,47 @@ The AI market insight is published by a daily ChatGPT/Codex desktop task, so it 
 
 ## Docker
 
-The Compose stack runs the production Next.js server and a private Redis instance. Redis data is persisted in the `redis-data` Docker volume. Keep `FRED_API_KEY` in `.env.local`; Compose loads that file at runtime without copying it into the application image.
+### Alpha hostname
+
+The alpha uses `https://salute-pang-bottom.ngrok-free.dev`. Set this as
+`APP_URL` in `.env.local`; the local Next.js build and server read this file.
+Set `REDIS_URL=redis://127.0.0.1:6379` for the Docker Redis instance.
+
+Run `pnpm alpha:start` to start Docker Redis, build the app, and run it locally
+with pnpm. In a second terminal, run `pnpm alpha:tunnel` with ngrok already authenticated.
+The tunnel forwards the exact alpha hostname to 127.0.0.1:3000. Keep both the
+local app and tunnel running while testing. First-time visitors may see ngrok's
+interstitial and can choose Visit Site after checking the hostname.
+No ngrok token is stored in this repository.
+
+Docker runs only Redis by default. Redis data persists in the `redis-data` volume
+and its port is bound to localhost. The app runs on the Mac using pnpm and reads
+provider credentials from `.env.local`.
 
 ```bash
-docker compose --env-file .env.local up --build -d
+pnpm redis:up
+pnpm dev
+```
+
+For alpha testing, use the optimized build instead of the development server:
+
+```bash
+pnpm alpha:start
+# Separate terminal:
+pnpm alpha:tunnel
+```
+
+To inspect Redis:
+
+```bash
 docker compose --env-file .env.local ps
 ```
 
-Open `http://localhost:3000`. To inspect the cache or follow the application logs:
+Open `http://localhost:3000`. Application logs appear in the pnpm terminal.
+To inspect the cache:
 
 ```bash
 docker compose --env-file .env.local exec redis redis-cli INFO keyspace
-docker compose --env-file .env.local logs -f app
 ```
 
 Stop the containers without deleting the Redis volume:
@@ -56,7 +85,15 @@ Stop the containers without deleting the Redis volume:
 docker compose --env-file .env.local down
 ```
 
+The containerized app remains optional under the `full-stack` profile:
+`docker compose --env-file .env.local --profile full-stack up --build -d`.
+Stop the local app first if using this alternative, since both use port 3000.
+
 ## Validate
+
+The nine-pillar alpha scoring rules and public-data proxy limitations are documented in
+[scoring-v2-alpha](docs/scoring-v2-alpha.md). Daily prepare-only Chinese image generation
+is documented in [moments-plan](docs/moments-plan.md); it never posts to WeChat.
 
 ```bash
 pnpm check

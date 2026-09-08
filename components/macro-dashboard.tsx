@@ -140,7 +140,20 @@ function TrendIcon({ trend }: { trend: Pillar["trend"] }) {
 }
 
 export function MacroDashboard() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const proxyNotes: Record<string, string> = locale === "en" ? {
+    growth: "Alpha proxy: industrial production YoY; not total GDP.",
+    earnings: "Alpha proxy: reported corporate profits YoY; not forward index EPS.",
+    positioning: "Alpha proxy: VIX risk sentiment; not actual investor positions.",
+  } : locale === "zh-CN" ? {
+    growth: "Alpha 代理指标：工业生产同比，非整体 GDP。",
+    earnings: "Alpha 代理指标：已公布企业利润同比，非指数预期每股盈利。",
+    positioning: "Alpha 代理指标：VIX 风险情绪，非投资者实际仓位。",
+  } : {
+    growth: "Alpha 代理指標：工業生產年增率，非整體 GDP。",
+    earnings: "Alpha 代理指標：已公布企業利潤年增率，非指數預期每股盈餘。",
+    positioning: "Alpha 代理指標：VIX 風險情緒，非投資者實際部位。",
+  };
   const [now, setNow] = useState<Date | null>(null);
   const [pillars, setPillars] = useState<Pillar[]>(() => INITIAL_PILLARS.map((pillar) => ({ ...pillar, score: 0, trend: "Stable" })));
   const [riskScore, setRiskScore] = useState<RiskScoreResponse | null>(null);
@@ -380,7 +393,7 @@ export function MacroDashboard() {
                             <span className={cn("size-2 rounded-full", scoreTone(pillar.score) === "positive" ? "bg-[#1d6c50]" : scoreTone(pillar.score) === "negative" ? "bg-[#ae5548]" : "bg-[#b78334]")} />
                             <div>
                               <p className="mb-0 text-sm font-semibold">{t(`pillar.${pillar.id}` as MessageKey)}</p>
-                              {isLivePillar(pillar.id) && <p className="mb-0 mt-0.5 hidden text-[10px] text-[#78857f] md:block">{pillar.change}</p>}
+                              {proxyNotes[pillar.id] ? <p className="mb-0 mt-0.5 text-[10px] text-[#78857f]">{proxyNotes[pillar.id]}</p> : isLivePillar(pillar.id) && <p className="mb-0 mt-0.5 hidden text-[10px] text-[#78857f] md:block">{pillar.change}</p>}
                             </div>
                             <Badge
                               variant="outline"
