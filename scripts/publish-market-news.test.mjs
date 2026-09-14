@@ -11,6 +11,12 @@ const bundle = {
 };
 
 describe("market-news publisher", () => {
+  it("accepts explicitly identified direct research without impersonating scheduled reports", () => {
+    const direct = { ...bundle, mode: "direct-sources", reports: [{ ...bundle.reports[0], id: "direct-news-research", name: "Direct source news research" }] };
+    expect(normalizeMarketNewsBundle(direct).feed.items).toHaveLength(1);
+    expect(() => normalizeMarketNewsBundle({ ...direct, reports: [{ ...direct.reports[0], items: [] }] })).toThrow("empty");
+    expect(() => normalizeMarketNewsBundle({ ...direct, mode: undefined })).toThrow();
+  });
   it("canonicalizes tracking parameters and deduplicates while retaining both origins", () => {
     const result = normalizeMarketNewsBundle(bundle);
     expect(result.feed.items).toHaveLength(1);

@@ -1,5 +1,13 @@
 # Scheduled market-news ingestion contract
 
+## Direct-source publication
+
+An explicitly requested direct news refresh may use `mode: "direct-sources"` with exactly one report identified by `id: "direct-news-research"` and `name: "Direct source news research"`. Its content records the research summary, article links, and access limitations, not a fabricated scheduled-task output. All existing article metadata and English/zh-CN/zh-TW requirements still apply. Empty direct-source feeds are rejected. Bundles without this mode retain the two-task contract below.
+
+Validate and publish with the existing `pnpm news:publish -- <bundle.json> --dry-run` and `pnpm news:publish -- <bundle.json>` commands. Generated bundles remain ignored by Git. This mode does not change the recurring automation or its source tasks.
+
+September 13, 2026: a one-time direct-source refresh published three Reuters stories syndicated by Yahoo Finance, dated September 11. Yahoo returned HTTP 429 for full-page requests; summaries were limited to retrieved excerpts and displayed timestamps. No Bloomberg article was verified.
+
 The weekday local Codex automation writes `YYYY-MM-DD.json` here and then runs `pnpm news:publish -- reports/market-news/YYYY-MM-DD.json`. Generated JSON bundles are ignored by Git; this contract is versioned.
 
 The bundle must contain `generatedAt` and exactly two reports. Each report requires `id`, `name`, `generatedAt`, the verbatim `content`, and an `items` array. Each item requires English `headline`, `summary`, and `category`, plus matching `zh-CN` and `zh-TW` values under `translations`. It also requires `source`, `publishedAt`, and an absolute canonical HTTPS `url` actually cited by the report. Source names and URLs remain canonical in every language.

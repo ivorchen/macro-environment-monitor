@@ -58,7 +58,8 @@ function stableId(url) {
 export function normalizeMarketNewsBundle(value) {
   if (!value || typeof value !== "object") fail("root must be an object.");
   const generatedAt = isoTimestamp(value.generatedAt, "generatedAt");
-  if (!Array.isArray(value.reports) || value.reports.length !== 2) {
+  const direct = value.mode === "direct-sources";
+  if (!Array.isArray(value.reports) || value.reports.length !== (direct ? 1 : 2)) {
     fail("reports must contain exactly the two configured task reports.");
   }
 
@@ -73,11 +74,12 @@ export function normalizeMarketNewsBundle(value) {
     if (!Array.isArray(report.items)) fail(`reports[${reportIndex}].items must be an array.`);
     return { ...normalized, items: report.items };
   });
-  if (new Set(reports.map((report) => report.id)).size !== REQUIRED_REPORTS.size) {
+  const expectedReports = direct ? new Map([["direct-news-research", "Direct source news research"]]) : REQUIRED_REPORTS;
+  if (new Set(reports.map((report) => report.id)).size !== expectedReports.size) {
     fail("reports must contain each configured task exactly once.");
   }
   for (const report of reports) {
-    if (REQUIRED_REPORTS.get(report.id) !== report.name) {
+    if (expectedReports.get(report.id) !== report.name) {
       fail(`unexpected report identity: ${report.id}.`);
     }
   }
@@ -121,6 +123,7 @@ export function normalizeMarketNewsBundle(value) {
   }
 
   const items = [...byUrl.values()].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  if (direct && !items.length) fail("direct-source feed must not be empty.");
   return {
     generatedAt,
     reports: reports.map((report) => ({
