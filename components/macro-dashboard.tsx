@@ -26,6 +26,7 @@ import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Label } from "@/components/ui/label";
 import { MarketSnapshotPanel } from "@/components/market-snapshot-panel";
 import { NfciYtdChart } from "@/components/nfci-ytd-chart";
+import { PrimeBookPanel } from "@/components/prime-book-panel";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -472,6 +473,7 @@ export function MacroDashboard() {
                 )}
 
                 <NfciYtdChart />
+                <PrimeBookPanel />
                 <MarketSnapshotPanel />
                 <MarketNewsPanel />
               </div>

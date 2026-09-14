@@ -134,6 +134,12 @@ The Overview includes a reusable **Chicago Fed NFCI — YTD** chart backed by FR
 
 Saved weekly reviews retain the complete NFCI point set and derived statistics available at save time so a historical chart can be reproduced without newer observations.
 
+## Prime Book positioning
+
+The Overview includes a provider-separated hedge-fund positioning panel. Its default public source is the token-free U.S. Office of Financial Research Hedge Fund Monitor API: quarterly aggregate SEC Form PF long equity exposure, short equity exposure, and net assets are normalized into gross equity exposure/NAV, net equity exposure/NAV, and long/short ratio. The UI labels this as a delayed public regulatory aggregate—not Goldman, Morgan Stanley, or J.P. Morgan Prime Book data—and shows quarter-over-quarter, one-year, percentile, vintage, methodology, and freshness information.
+
+Licensed Prime Book observations remain a separate optional provider series. After display rights are reviewed, operators can add them through the documented [manual ingestion contract](docs/prime-book-data.md) or point `PRIME_BOOK_DATA_PATH` at an equivalent JSON file. The API never joins different providers into a continuous series and flags stale, invalid, or internally inconsistent data.
+
 ## Sector view
 
 The **Sectors** workspace ranks the eleven U.S. Select Sector SPDR ETFs using Nasdaq daily closes. `sector-etf-risk-v1` combines absolute momentum (40%), 20-session relative strength versus SPY (35%), 14-session RSI (15%), and inverse 20-session realized volatility (10%). Cards expose the one-day and 20-session returns, relative return, RSI, volatility, observation date, and data status. Results are cached in Redis for six hours and do not consume the FMP allowance.
